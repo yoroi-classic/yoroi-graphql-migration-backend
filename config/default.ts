@@ -1,3 +1,37 @@
+const requireEnvInProduction = (
+  name: string,
+  developmentDefault: string
+): string => {
+  const value = process.env[name];
+  if (value) return value;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(`${name} must be set in production`);
+  }
+  return developmentDefault;
+};
+
+const usingQueueEndpoint = process.env.USE_SIGNED_TX_QUEUE || "false";
+
+const requireTxSubmissionEndpoint = (): string => {
+  const value = process.env.TX_SUBMISSION_ENDPOINT;
+  if (value) return value;
+  if (process.env.NODE_ENV === "production" && usingQueueEndpoint !== "true") {
+    throw new Error("TX_SUBMISSION_ENDPOINT must be set in production");
+  }
+  return "http://localhost:8090/api/submit/tx";
+};
+
+const requireSignedTxQueueEndpoint = (): string => {
+  const value = process.env.SIGNED_TX_QUEUE_ENDPOINT;
+  if (value) return value;
+  if (process.env.NODE_ENV === "production" && usingQueueEndpoint === "true") {
+    throw new Error(
+      "SIGNED_TX_QUEUE_ENDPOINT must be set in production when USE_SIGNED_TX_QUEUE=true"
+    );
+  }
+  return "http://localhost:3030/";
+};
+
 export default { 
   db: {
     user: process.env.POSTGRES_USER || "hasura",
@@ -9,15 +43,21 @@ export default {
   server: {
     addressRequestLimit: 500,
     apiResponseLimit: 50,
-    txSubmissionEndpoint: process.env.TX_SUBMISSION_ENDPOINT || "https://backend.yoroiwallet.com/api/submit/tx",
-    signedTxQueueEndpoint: process.env.SIGNED_TX_QUEUE_ENDPOINT || "http://localhost:3030/",
-    smashEndpoint: process.env.SMASH_ENDPOINT || "https://smash.yoroiwallet.com/api/v1/metadata/",
+    txSubmissionEndpoint: requireTxSubmissionEndpoint(),
+    signedTxQueueEndpoint: requireSignedTxQueueEndpoint(),
+    smashEndpoint: requireEnvInProduction(
+      "SMASH_ENDPOINT",
+      "http://localhost:8083/api/v1/metadata/"
+    ),
     port: process.env.PORT || 8082,
     txsHashesRequestLimit: 150,
   },
   safeBlockDifference: process.env.SAFE_BLOCK_DIFFERENCE || "10",
-  usingQueueEndpoint: process.env.USE_SIGNED_TX_QUEUE || "false",
-  catalystFundInfoPath: process.env.CATALYST_FUND_INFO_PATH || "https://dwgsvtv0ekonw.cloudfront.net/catalyst-mainnet-fund-info.json",
+  usingQueueEndpoint,
+  catalystFundInfoPath: requireEnvInProduction(
+    "CATALYST_FUND_INFO_PATH",
+    "http://localhost:8083/catalyst/fund-info.json"
+  ),
   aws: {
     lambda: {
       nftValidator: "{envName}NftValidatorLambda"

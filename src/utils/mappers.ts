@@ -16,7 +16,7 @@ import {
   TransactionMetadatum,
   BigNum,
   MetadataMap,
-} from "@emurgo/cardano-serialization-lib-nodejs";
+} from "@yoroi-classic/cardano-serialization-lib-nodejs";
 
 const MAX_INT = "2147483647";
 

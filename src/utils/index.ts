@@ -8,7 +8,7 @@ import {
   PointerAddress,
   RewardAddress,
   Transaction,
-} from "@emurgo/cardano-serialization-lib-nodejs";
+} from "@yoroi-classic/cardano-serialization-lib-nodejs";
 import { bech32 } from "bech32";
 import { Prefixes } from "./cip5";
 import { Asset } from "../Transactions/types";

@@ -1,6 +1,6 @@
 // @flow
 const config = require('config');
-const { PrivateKey } = require('@emurgo/cardano-serialization-lib-nodejs');
+const { PrivateKey } = require('@yoroi-classic/cardano-serialization-lib-nodejs');
 const exchangeRate = require('./fiat-exchange-rate');
 const fetcher = require('./fetcher');
 const logger = require('./logger');
@@ -70,4 +70,3 @@ main().catch(error => {
   logger.error(error);
   process.exit(1);
 });
-

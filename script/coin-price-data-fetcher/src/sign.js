@@ -1,5 +1,5 @@
 // @flow
-const { PrivateKey, PublicKey } = require("@emurgo/cardano-serialization-lib-nodejs");
+const { PrivateKey, PublicKey } = require("@yoroi-classic/cardano-serialization-lib-nodejs");
 /*:: import type { Ticker } from './types'; */
 
 function serializeTicker(ticker/*: Ticker*/)/*: Buffer*/ {

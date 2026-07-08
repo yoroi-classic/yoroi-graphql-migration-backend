@@ -3,7 +3,7 @@ import crypto from "crypto";
 import {
   PrivateKey,
   PublicKey,
-} from "@emurgo/cardano-serialization-lib-nodejs";
+} from "@yoroi-classic/cardano-serialization-lib-nodejs";
 import { serializeTicker, sign, verify } from "./sign";
 
 const TICKER = {
