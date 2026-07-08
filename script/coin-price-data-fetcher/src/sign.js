@@ -1,5 +1,6 @@
 // @flow
-const { PrivateKey, PublicKey } = require("@yoroi-classic/cardano-serialization-lib-nodejs");
+const CardanoWasm = require("@yoroi-classic/cardano-serialization-lib-nodejs");
+const { PrivateKey, PublicKey } = CardanoWasm;
 /*:: import type { Ticker } from './types'; */
 
 function serializeTicker(ticker/*: Ticker*/)/*: Buffer*/ {
