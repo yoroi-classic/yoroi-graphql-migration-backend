@@ -21,7 +21,7 @@ import {
   GeneralTransactionMetadata,
   TransactionMetadatum,
   BigNum,
-} from "@emurgo/cardano-serialization-lib-nodejs";
+} from "@yoroi-classic/cardano-serialization-lib-nodejs";
 
 /**
   Everything else in this repo is using graphql, so why psql here?

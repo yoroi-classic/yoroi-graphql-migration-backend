@@ -11,7 +11,7 @@ const { encode, toWords } = bech32;
 
 const endpoint = config.apiUrl;
 
-// these tests were written against http://10hk-mainnet.yoroiwallet.com/api/v2/
+// these tests were written against legacy mainnet backend data.
 // when they passed there, I pointed them against this repo and made that repo
 // pass as well.
 // Of course, that means we are testing against mainnet data.  Which could change.
@@ -205,7 +205,7 @@ describe("/txs/history", function() {
 
   it("should return elements sorted by time asc (and hash asc but that is not tested) if after is present", async () => {
     // NOTE: the original test in yoroi-backend-service:../v2-transaction-history.integration-test.js
-    // said time should be desc. But https://iohk-mainnet.yoroiwallet.com/api/v2/ does not
+    // said time should be desc. But the legacy mainnet backend did not
     // have that behavior.  The first result is the oldest.  
     // (time desc should mean most recent first).
     const result = await axios.post(testableUri, dataSortedDescHashOnAfter );
@@ -343,7 +343,7 @@ describe("/txs/history", function() {
     const result = await axios.post(testableUri, dataTxOrdering);
     // the order index is not actually available, so we just check that they values we get back are the ones we want.
     // not a great test...
-    // these values came form 1ohk-mainnet.yoroiwallet.com on 10 jul 2020.
+    // these values came from legacy mainnet backend data on 10 jul 2020.
     expect(result.data[0].outputs[0].address).to.be.eql("DdzFFzCqrhsvprtHyEbe74H4xUohxxsahwAJgnQHjD959CrfMTb2BcugM1eAd4Y81AeDMieMjqELXShtBNj3XPUFG1aGku1NVccDMY25");
     expect(result.data[0].outputs[0].amount).to.be.eql("3168639578");
     expect(result.data[0].outputs[1].address).to.be.eql("Ae2tdPwUPEYynjShTL8D2L2GGggTH3AGtMteb7r65oLar1vzZ4JPfxob4b8");

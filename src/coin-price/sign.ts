@@ -1,4 +1,4 @@
-import CardanoWasm from "@emurgo/cardano-serialization-lib-nodejs";
+import CardanoWasm from "@yoroi-classic/cardano-serialization-lib-nodejs";
 import type { Ticker } from "./types";
 
 export function serializeTicker(ticker: Ticker): Buffer {

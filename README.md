@@ -38,7 +38,17 @@ npm run dev
 
 The server will then run at http://localhost:8082. You can query using curl (ex: `curl http://localhost:8082/bestblock`)
 
-This is no easy way to configure runtime settings. However, you can edit lines 23-26 of src/index.ts to change port settings, graphql uri, et cetera.
+Runtime settings are configured with environment variables. Core preprod/local values are:
+
+- `POSTGRES_USER`, `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`
+- `PORT=8082`
+- `TX_SUBMISSION_ENDPOINT` for direct transaction submission, or `USE_SIGNED_TX_QUEUE=true` with `SIGNED_TX_QUEUE_ENDPOINT`
+- `SMASH_ENDPOINT` for pool metadata, expected to point at a self-hosted SMASH-compatible server such as the `cardano-smash-server` in `cardano-db-sync`
+- `CATALYST_FUND_INFO_PATH` for Catalyst fund metadata
+
+In production, `SMASH_ENDPOINT` and `CATALYST_FUND_INFO_PATH` must be set explicitly. Transaction submission also needs an explicit endpoint: set `TX_SUBMISSION_ENDPOINT` for direct submission, or set `USE_SIGNED_TX_QUEUE=true` with `SIGNED_TX_QUEUE_ENDPOINT` for queue submission. Local development defaults only point at localhost services.
+
+Token registry metadata is not served by `/multiAsset/metadata`; that endpoint reads mint metadata from db-sync. The extension's `metadata/:subject` token-registry contract should be backed by a mirror or proxy of Cardano Token Registry data, with `https://tokens.cardano.org/metadata/{subject}` and `https://preprod.tokens.cardano.org/metadata/{subject}` as the upstream API shape.
 
 ## Tests
 

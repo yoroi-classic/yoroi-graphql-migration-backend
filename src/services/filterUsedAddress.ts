@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 import { Request, Response } from "express";
-import { Address } from "@emurgo/cardano-serialization-lib-nodejs";
+import { Address } from "@yoroi-classic/cardano-serialization-lib-nodejs";
 
 import config from "config";
 import {
