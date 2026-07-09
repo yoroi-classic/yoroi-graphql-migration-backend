@@ -16,7 +16,7 @@ on:
 jobs:
   lint:
     if: >-
-      (github.event_name == 'pull_request' && github.actor == 'dependabot[bot]') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]') ||
       (github.event_name == 'pull_request_review' &&
         (github.event.review.state == 'approved' || contains(github.event.review.body, '/check')))
     runs-on: ubuntu-latest
@@ -42,7 +42,7 @@ jobs:
           npm run eslint
   prettier:
     if: >-
-      (github.event_name == 'pull_request' && github.actor == 'dependabot[bot]') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]') ||
       (github.event_name == 'pull_request_review' &&
         (github.event.review.state == 'approved' || contains(github.event.review.body, '/check')))
     runs-on: ubuntu-latest
