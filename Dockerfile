@@ -9,8 +9,7 @@ COPY . .
 RUN npm ci
 RUN cd script/coin-price-data-fetcher && npm ci
 RUN touch /var/log/cron.log
-RUN echo "*/5 * * * * cd /home/cardano/app/script/coin-price-data-fetcher && npm run start-fetcher" > /etc/crontabs/root
-RUN echo "* * * * * cd /home/cardano/app/ && node ./dist/coin-price/poller.js" >> /etc/crontabs/root
-USER 1001:1001
+RUN echo "*/5 * * * * su -s /bin/sh cardano -c 'cd /home/cardano/app/script/coin-price-data-fetcher && npm run start-fetcher'" > /etc/crontabs/root
+RUN echo "* * * * * su -s /bin/sh cardano -c 'cd /home/cardano/app && node ./dist/coin-price/poller.js'" >> /etc/crontabs/root
 EXPOSE 8080
-CMD ["sh", "-c", "crond -l 2 -f > /dev/stdout 2> /dev/stderr & node ./dist/index.js"]
+CMD ["sh", "-c", "crond -l 2 -f > /dev/stdout 2> /dev/stderr & su -s /bin/sh cardano -c 'node ./dist/index.js'"]

@@ -2,7 +2,7 @@
 // This module provides fiat exchange rates.
 const fs = require('fs');
 const config = require('config');
-const fetch = require('fetch-timeout');
+const fetch = require('./fetch-timeout');
 const logger = require('./logger');
 
 type Rates = { [to: string]: number };
