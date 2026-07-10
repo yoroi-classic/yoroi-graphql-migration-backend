@@ -312,13 +312,30 @@ const getStatus = async (_req: Request, res: Response) => {
   });
 };
 
-const signedTxContractHandler = async (req: Request, res: Response) => {
+type SignedTxContractHandler = (req: Request, res: Response) => Promise<void>;
+
+const directSignedTxContractHandler: SignedTxContractHandler = async (
+  req,
+  res
+) => {
   if (!req.body.signedTx) throw new Error("No signedTx in body");
 
   res.send([]);
 };
 
-const createContractRouter = (pool: WalletContractPool) => {
+const queuedSignedTxContractHandler: SignedTxContractHandler = async (
+  req,
+  res
+) => {
+  if (!req.body.signedTx) throw new Error("No signedTx in body");
+
+  res.status(200).send({ txId: fixtures.txHash });
+};
+
+const createContractRouter = (
+  pool: WalletContractPool,
+  signedTxContractHandler = directSignedTxContractHandler
+) => {
   const router = express();
   applyMiddleware(
     [
@@ -372,34 +389,50 @@ const createContractRouter = (pool: WalletContractPool) => {
   return router;
 };
 
+const startContractServer = async (
+  signedTxContractHandler: SignedTxContractHandler = directSignedTxContractHandler
+): Promise<{ server: http.Server; client: AxiosInstance }> => {
+  const pool = new WalletContractPool();
+  const server = http.createServer(
+    createContractRouter(pool, signedTxContractHandler)
+  );
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, "127.0.0.1", resolve);
+  });
+
+  const address = server.address() as AddressInfo;
+  const client = axios.create({
+    baseURL: `http://127.0.0.1:${address.port}`,
+    validateStatus: () => true,
+  });
+
+  return { server, client };
+};
+
+const closeContractServer = async (server: http.Server): Promise<void> => {
+  if (!server.listening) return;
+
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+};
+
 describe("wallet endpoint contracts", function () {
   let server: http.Server;
   let client: AxiosInstance;
 
   before(async () => {
-    const pool = new WalletContractPool();
-    server = http.createServer(createContractRouter(pool));
-
-    await new Promise<void>((resolve) => {
-      server.listen(0, "127.0.0.1", resolve);
-    });
-
-    const address = server.address() as AddressInfo;
-    client = axios.create({
-      baseURL: `http://127.0.0.1:${address.port}`,
-      validateStatus: () => true,
-    });
+    const contractServer = await startContractServer();
+    server = contractServer.server;
+    client = contractServer.client;
   });
 
   after(async () => {
-    if (!server.listening) return;
-
-    await new Promise<void>((resolve, reject) => {
-      server.close((error) => {
-        if (error) reject(error);
-        else resolve();
-      });
-    });
+    await closeContractServer(server);
   });
 
   it("keeps status and best block response shapes stable", async () => {
@@ -566,5 +599,20 @@ describe("wallet endpoint contracts", function () {
     expect(malformedHistory.data).to.deep.equal({
       error: { response: "body.untilBlock does not exist." },
     });
+  });
+
+  it("keeps queued signed transaction success response shape stable", async () => {
+    const queued = await startContractServer(queuedSignedTxContractHandler);
+
+    try {
+      const accepted = await queued.client.post("/txs/signed", {
+        signedTx: Buffer.from("queued contract tx").toString("base64"),
+      });
+
+      expect(accepted.status).to.equal(200);
+      expect(accepted.data).to.deep.equal({ txId: fixtures.txHash });
+    } finally {
+      await closeContractServer(queued.server);
+    }
   });
 });
