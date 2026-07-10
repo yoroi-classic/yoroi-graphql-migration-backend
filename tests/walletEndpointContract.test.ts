@@ -50,7 +50,18 @@ const unwrapEither = <T>(result: UtilEither<T>): T => {
   throw new Error(result.errMsg);
 };
 
+interface WalletContractPoolOptions {
+  poolMetadataHash?: string | null;
+  poolHistoryRows?: QueryResultRow[];
+}
+
 class WalletContractPool implements PoolOrClient {
+  private readonly options: WalletContractPoolOptions;
+
+  constructor(options: WalletContractPoolOptions = {}) {
+    this.options = options;
+  }
+
   async query<R extends QueryResultRow = any, I extends any[] = any[]>(
     queryTextOrConfig: string | QueryConfig<I>,
     _values?: I
@@ -95,7 +106,7 @@ class WalletContractPool implements PoolOrClient {
           index: 0,
           address: fixtures.address,
           value: "1234567",
-          data_hash: null,
+          data_hash: fixtures.dataHash,
           assets: [
             {
               f1: fixtures.policyId,
@@ -198,7 +209,22 @@ class WalletContractPool implements PoolOrClient {
       compactText.includes("from pool_hash") &&
       compactText.includes("pool_metadata_ref")
     ) {
+      if (this.options.poolMetadataHash) {
+        return rows([
+          { metadata_hash: this.options.poolMetadataHash },
+        ]) as unknown as QueryResult<R>;
+      }
+
       return rows([]) as unknown as QueryResult<R>;
+    }
+
+    if (
+      compactText.includes("from combined_certificates") &&
+      compactText.includes("\"poolHashKey\" = $1")
+    ) {
+      return rows(
+        this.options.poolHistoryRows || []
+      ) as unknown as QueryResult<R>;
     }
 
     if (compactText.includes("WITH mint_detail")) {
@@ -390,9 +416,9 @@ const createContractRouter = (
 };
 
 const startContractServer = async (
-  signedTxContractHandler: SignedTxContractHandler = directSignedTxContractHandler
+  signedTxContractHandler: SignedTxContractHandler = directSignedTxContractHandler,
+  pool: WalletContractPool = new WalletContractPool()
 ): Promise<{ server: http.Server; client: AxiosInstance }> => {
-  const pool = new WalletContractPool();
   const server = http.createServer(
     createContractRouter(pool, signedTxContractHandler)
   );
@@ -424,6 +450,7 @@ const closeContractServer = async (server: http.Server): Promise<void> => {
 describe("wallet endpoint contracts", function () {
   let server: http.Server;
   let client: AxiosInstance;
+  const originalAxiosGet = axios.get;
 
   before(async () => {
     const contractServer = await startContractServer();
@@ -433,6 +460,10 @@ describe("wallet endpoint contracts", function () {
 
   after(async () => {
     await closeContractServer(server);
+  });
+
+  afterEach(() => {
+    axios.get = originalAxiosGet;
   });
 
   it("keeps status and best block response shapes stable", async () => {
@@ -474,7 +505,7 @@ describe("wallet endpoint contracts", function () {
         tx_index: 0,
         receiver: fixtures.address,
         amount: "1234567",
-        dataHash: null,
+        dataHash: fixtures.dataHash,
         assets: [
           {
             assetId: fixtures.tokenId,
@@ -525,6 +556,8 @@ describe("wallet endpoint contracts", function () {
       epoch: 42,
       slot: 123,
     });
+    expect(history.data[0]).to.not.have.property("validContract");
+    expect(history.data[0]).to.not.have.property("scriptSize");
     expect(history.data[0].inputs[0]).to.include({
       address: fixtures.address,
       amount: "1234567",
@@ -577,6 +610,63 @@ describe("wallet endpoint contracts", function () {
         },
       ],
     });
+  });
+
+  it("keeps pool history available when SMASH metadata lookup is unavailable", async () => {
+    axios.get = (async () => {
+      throw new Error("SMASH unavailable");
+    }) as typeof axios.get;
+
+    const pool = new WalletContractPool({
+      poolMetadataHash: "0".repeat(64),
+      poolHistoryRows: [
+        {
+          epoch_no: 221,
+          epoch_slot_no: 344193,
+          tx_index: 1,
+          certIndex: 2,
+          jsonCert: {
+            jsType: "PoolRetirement",
+            certIndex: 2,
+            poolHashKey: fixtures.poolId,
+            epoch: 300,
+          },
+        },
+      ],
+    });
+    const fallback = await startContractServer(
+      directSignedTxContractHandler,
+      pool
+    );
+
+    try {
+      const poolInfo = await fallback.client.post("/pool/info", {
+        poolIds: [fixtures.poolId],
+      });
+
+      expect(poolInfo.status).to.equal(200);
+      expect(poolInfo.data).to.deep.equal({
+        [fixtures.poolId]: {
+          info: {},
+          history: [
+            {
+              epoch: 221,
+              slot: 344193,
+              tx_ordinal: 1,
+              cert_ordinal: 2,
+              payload: {
+                kind: "PoolRetirement",
+                certIndex: 2,
+                poolKeyHash: fixtures.poolId,
+                epoch: 300,
+              },
+            },
+          ],
+        },
+      });
+    } finally {
+      await closeContractServer(fallback.server);
+    }
   });
 
   it("keeps signed transaction success and malformed request behavior stable", async () => {
