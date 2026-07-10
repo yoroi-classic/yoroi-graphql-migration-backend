@@ -1,5 +1,4 @@
 // Preserve the previous fetch-timeout call shape without its stale node-fetch@1 peer.
-const AbortController = require("abort-controller");
 const fetch = require("node-fetch");
 
 module.exports = async function fetchWithTimeout(
@@ -13,7 +12,21 @@ module.exports = async function fetchWithTimeout(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const callerSignal = options.signal;
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  const abortFromCaller = () => controller.abort();
+
+  if (callerSignal) {
+    if (callerSignal.aborted) {
+      controller.abort();
+    } else {
+      callerSignal.addEventListener("abort", abortFromCaller, { once: true });
+    }
+  }
 
   try {
     return await fetch(url, {
@@ -21,11 +34,14 @@ module.exports = async function fetchWithTimeout(
       signal: controller.signal,
     });
   } catch (error) {
-    if (error && error.name === "AbortError") {
+    if (error && error.name === "AbortError" && timedOut) {
       throw new Error(timeoutMessage);
     }
     throw error;
   } finally {
     clearTimeout(timeout);
+    if (callerSignal) {
+      callerSignal.removeEventListener("abort", abortFromCaller);
+    }
   }
 };
