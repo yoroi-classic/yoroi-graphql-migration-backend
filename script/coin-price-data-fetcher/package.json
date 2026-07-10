@@ -11,8 +11,13 @@
     "start-monitor": "node ./flow-files/src/index.js monitor",
     "test": "npm run flow-remove-types && jest ./flow-files/src"
   },
+  "packageManager": "npm@10.9.8",
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=22.0.0 <23",
+    "npm": ">=10.0.0 <11"
+  },
   "dependencies": {
     "@yoroi-classic/cardano-serialization-lib-nodejs": "git+https://github.com/yoroi-classic/cardano-serialization-lib.git#186d6704bd05b8d2abd5f1342292602a1e31deaf",
     "aws-sdk": "^2.1057.0",

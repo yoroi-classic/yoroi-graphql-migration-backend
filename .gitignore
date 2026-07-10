@@ -1,3 +1,4 @@
 node_modules
 *.swp
 dist
+script/coin-price-data-fetcher/flow-files

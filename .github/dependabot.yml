@@ -5,12 +5,14 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    versioning-strategy: increase-if-necessary
 
   - package-ecosystem: "npm"
     directory: "/script/coin-price-data-fetcher"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    versioning-strategy: increase-if-necessary
 
   - package-ecosystem: "github-actions"
     directory: "/"
