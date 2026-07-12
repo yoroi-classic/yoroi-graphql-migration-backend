@@ -16,6 +16,7 @@ on:
       - ".github/workflows/**"
       - "Dockerfile"
       - ".dockerignore"
+      - "tests/**"
   pull_request_review:
     types: [submitted]
 
