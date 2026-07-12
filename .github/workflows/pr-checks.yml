@@ -6,8 +6,10 @@ on:
     paths:
       - "package.json"
       - "package-lock.json"
-      - "script/coin-price-data-fetcher/package.json"
-      - "script/coin-price-data-fetcher/package-lock.json"
+      - "src/**"
+      - "test/**"
+      - "script/**"
+      - "tsconfig*.json"
       - ".nvmrc"
       - ".npmrc"
       - "script/coin-price-data-fetcher/.npmrc"
@@ -84,3 +86,6 @@ jobs:
       - name: run build
         run: |
           npm run build
+      - name: build Docker image
+        run: |
+          docker build -t yoroi-graphql-migration-backend:ci .
