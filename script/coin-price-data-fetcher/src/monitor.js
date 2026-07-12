@@ -1,6 +1,6 @@
 // @flow
 const config = require('config');
-const fetch =  require('fetch-timeout');
+const fetch = require('./fetch-timeout');
 const { PublicKey } = require('cardano-wallet');
 const logger = require('./logger');
 const sign = require('./sign');

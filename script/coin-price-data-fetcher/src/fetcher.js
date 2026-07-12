@@ -1,7 +1,7 @@
 // @flow
 // This modules fetches data using APIs defined in api.js.
 const config = require('config');
-const fetch = require('fetch-timeout');
+const fetch = require('./fetch-timeout');
 const api = require('./api');
 const logger = require('./logger');
 const exchangeRate = require('./fiat-exchange-rate');
@@ -113,4 +113,3 @@ if (require.main === module) {
     console.error(error);
   });
 }
-

@@ -1,0 +1,7 @@
+.git
+*.env
+.env.*
+dist
+node_modules
+script/coin-price-data-fetcher/flow-files
+script/coin-price-data-fetcher/node_modules

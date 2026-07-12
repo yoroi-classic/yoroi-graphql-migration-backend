@@ -4,6 +4,8 @@ import { UtilEither } from "../utils";
 
 import { CardanoFrag } from "../Transactions/types";
 
+export type { CardanoFrag } from "../Transactions/types";
+
 export const askBestBlock = async (
   pool: Pool
 ): Promise<UtilEither<CardanoFrag>> => {

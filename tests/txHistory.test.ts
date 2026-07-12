@@ -143,6 +143,12 @@ const certificateDeregistrationRewardAddresses = {
 
 const testableUri = endpoint + "v2/txs/history";
 
+const expectReferenceError = (err: unknown, message: string): void => {
+  if (!axios.isAxiosError(err) || !err.response) throw err;
+
+  expect(err.response.status).to.be.equal(500);
+  expect(err.response.data.error.response).to.be.equal(message);
+};
 
 describe("/txs/history", function() {
   this.timeout(100000);
@@ -166,8 +172,7 @@ describe("/txs/history", function() {
       });
       expect(1).to.be.equal(0); // equivalent to asset false
     } catch (err) {
-      expect(err.response.status).to.be.equal(500);
-      expect(err.response.data.error.response).to.be.equal("REFERENCE_BEST_BLOCK_MISMATCH");
+      expectReferenceError(err, "REFERENCE_BEST_BLOCK_MISMATCH");
     }
   });
   it("should throw reference errors for a tx that doesn't exist.", async() => {
@@ -182,8 +187,7 @@ describe("/txs/history", function() {
       });
       expect(1).to.be.equal(0); // equivalent to asset false
     } catch (err) {
-      expect(err.response.status).to.be.equal(500);
-      expect(err.response.data.error.response).to.be.equal("REFERENCE_TX_NOT_FOUND");
+      expectReferenceError(err, "REFERENCE_TX_NOT_FOUND");
     }
   });
   it("should throw reference errors for a tx that doesn't match the block in after.", async() => {
@@ -198,8 +202,7 @@ describe("/txs/history", function() {
       });
       expect(1).to.be.equal(0); // equivalent to asset false
     } catch (err) {
-      expect(err.response.status).to.be.equal(500);
-      expect(err.response.data.error.response).to.be.equal("REFERENCE_BLOCK_MISMATCH");
+      expectReferenceError(err, "REFERENCE_BLOCK_MISMATCH");
     }
   });
 
