@@ -72,7 +72,10 @@ class WalletContractPool implements PoolOrClient {
         : queryTextOrConfig.text;
     const compactText = text.replace(/\s+/g, " ").trim();
 
-    if (compactText.includes("FROM BLOCK") && compactText.includes("ORDER BY id DESC")) {
+    if (
+      compactText.includes("FROM BLOCK") &&
+      compactText.includes("ORDER BY id DESC")
+    ) {
       return rows([
         {
           epoch: 42,
@@ -133,11 +136,14 @@ class WalletContractPool implements PoolOrClient {
       ]) as unknown as QueryResult<R>;
     }
 
-    if (compactText.includes("SELECT \"block\".\"block_no\" AS \"blockNumber\"")) {
+    if (/SELECT "block"\."block_no" AS "blockNumber"/.test(compactText)) {
       return rows([{ blockNumber: 987654 }]) as unknown as QueryResult<R>;
     }
 
-    if (compactText.includes("with hashes as") && compactText.includes("outAddrValPairs")) {
+    if (
+      compactText.includes("with hashes as") &&
+      compactText.includes("outAddrValPairs")
+    ) {
       return rows([
         {
           hash: Buffer.from(fixtures.txHash, "hex"),
@@ -192,7 +198,7 @@ class WalletContractPool implements PoolOrClient {
 
     if (
       compactText.includes("from stake_address") &&
-      compactText.includes("\"remainingAmount\"")
+      /"remainingAmount"/.test(compactText)
     ) {
       return rows([
         {
@@ -220,7 +226,7 @@ class WalletContractPool implements PoolOrClient {
 
     if (
       compactText.includes("from combined_certificates") &&
-      compactText.includes("\"poolHashKey\" = $1")
+      /"poolHashKey" = \$1/.test(compactText)
     ) {
       return rows(
         this.options.poolHistoryRows || []
