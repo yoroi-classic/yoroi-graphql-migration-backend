@@ -1,0 +1,184 @@
+#!/usr/bin/env node
+
+const { execFileSync } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+
+const repoRoot = path.resolve(__dirname, "..");
+const packageRoots = [
+  { name: "root", dir: repoRoot },
+  {
+    name: "coin-price-data-fetcher",
+    dir: path.join(repoRoot, "script", "coin-price-data-fetcher"),
+  },
+];
+
+const failures = [];
+
+const fail = (message) => {
+  failures.push(message);
+};
+
+const readFile = (filePath) => fs.readFileSync(filePath, "utf8");
+
+const readJson = (filePath) => JSON.parse(readFile(filePath));
+
+const parseVersion = (value) => {
+  const match = String(value)
+    .trim()
+    .replace(/^v/, "")
+    .match(/^(\d+)(?:\.(\d+))?(?:\.(\d+))?/);
+
+  if (!match) {
+    throw new Error(`Could not parse version: ${value}`);
+  }
+
+  return {
+    raw: String(value).trim(),
+    major: Number(match[1]),
+    minor: Number(match[2] || 0),
+    patch: Number(match[3] || 0),
+  };
+};
+
+const compareVersions = (left, right) => {
+  for (const key of ["major", "minor", "patch"]) {
+    if (left[key] > right[key]) return 1;
+    if (left[key] < right[key]) return -1;
+  }
+  return 0;
+};
+
+const satisfiesComparator = (version, comparator) => {
+  const match = comparator.match(/^(>=|>|<=|<|=)?v?(\d+(?:\.\d+){0,2})$/);
+  if (!match) {
+    throw new Error(`Unsupported engine comparator: ${comparator}`);
+  }
+
+  const operator = match[1] || "=";
+  const expected = parseVersion(match[2]);
+  const comparison = compareVersions(version, expected);
+
+  return (
+    (operator === ">=" && comparison >= 0) ||
+    (operator === ">" && comparison > 0) ||
+    (operator === "<=" && comparison <= 0) ||
+    (operator === "<" && comparison < 0) ||
+    (operator === "=" && comparison === 0)
+  );
+};
+
+const satisfiesRange = (version, range) =>
+  range
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((comparator) => satisfiesComparator(version, comparator));
+
+const getCurrentNpmVersion = () => {
+  const userAgentMatch = (process.env.npm_config_user_agent || "").match(
+    /\bnpm\/([^\s]+)/
+  );
+
+  if (userAgentMatch) {
+    return parseVersion(userAgentMatch[1]);
+  }
+
+  return parseVersion(execFileSync("npm", ["--version"], { encoding: "utf8" }));
+};
+
+const readNpmrc = (dir) => {
+  const npmrcPath = path.join(dir, ".npmrc");
+  const settings = new Map();
+
+  for (const line of readFile(npmrcPath).split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) {
+      continue;
+    }
+
+    const separatorIndex = trimmed.indexOf("=");
+    settings.set(
+      trimmed.slice(0, separatorIndex).trim().toLowerCase(),
+      trimmed
+        .slice(separatorIndex + 1)
+        .trim()
+        .toLowerCase()
+    );
+  }
+
+  return settings;
+};
+
+const rootPackage = readJson(path.join(repoRoot, "package.json"));
+const nvmrcVersion = parseVersion(readFile(path.join(repoRoot, ".nvmrc")));
+const currentNodeVersion = parseVersion(process.version);
+const currentNpmVersion = getCurrentNpmVersion();
+const packageManagerMatch =
+  rootPackage.packageManager && rootPackage.packageManager.match(/^npm@(.+)$/);
+
+if (!packageManagerMatch) {
+  fail('root packageManager must be declared as "npm@<version>"');
+} else if (
+  !satisfiesRange(parseVersion(packageManagerMatch[1]), rootPackage.engines.npm)
+) {
+  fail(
+    `root packageManager ${rootPackage.packageManager} does not satisfy npm engine ${rootPackage.engines.npm}`
+  );
+}
+
+if (!satisfiesRange(nvmrcVersion, rootPackage.engines.node)) {
+  fail(
+    `.nvmrc ${nvmrcVersion.raw} does not satisfy ${rootPackage.engines.node}`
+  );
+}
+
+for (const packageRoot of packageRoots) {
+  const pkg = readJson(path.join(packageRoot.dir, "package.json"));
+  const npmrc = readNpmrc(packageRoot.dir);
+
+  if (pkg.engines.node !== rootPackage.engines.node) {
+    fail(
+      `${packageRoot.name} node engine ${pkg.engines.node} does not match root ${rootPackage.engines.node}`
+    );
+  }
+
+  if (pkg.engines.npm !== rootPackage.engines.npm) {
+    fail(
+      `${packageRoot.name} npm engine ${pkg.engines.npm} does not match root ${rootPackage.engines.npm}`
+    );
+  }
+
+  if (pkg.packageManager !== rootPackage.packageManager) {
+    fail(
+      `${packageRoot.name} packageManager ${pkg.packageManager} does not match root ${rootPackage.packageManager}`
+    );
+  }
+
+  if (npmrc.get("engine-strict") !== "true") {
+    fail(`${packageRoot.name} .npmrc must set engine-strict=true`);
+  }
+
+  if (!satisfiesRange(currentNodeVersion, pkg.engines.node)) {
+    fail(
+      `current Node ${currentNodeVersion.raw} does not satisfy ${packageRoot.name} engine ${pkg.engines.node}`
+    );
+  }
+
+  if (!satisfiesRange(currentNpmVersion, pkg.engines.npm)) {
+    fail(
+      `current npm ${currentNpmVersion.raw} does not satisfy ${packageRoot.name} engine ${pkg.engines.npm}`
+    );
+  }
+}
+
+if (failures.length > 0) {
+  console.error("Toolchain check failed:");
+  for (const failure of failures) {
+    console.error(`- ${failure}`);
+  }
+  process.exit(1);
+}
+
+console.log(
+  `Toolchain OK: Node ${process.version}, npm ${currentNpmVersion.raw}, engine-strict enabled for ${packageRoots.length} package roots.`
+);
