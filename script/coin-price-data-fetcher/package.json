@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "flow": "flow",
+    "toolchain:check": "node ../../scripts/check-toolchain.js",
     "postinstall": "npm run flow-remove-types",
     "flow-remove-types": "flow-remove-types -d ./flow-files/config --all --pretty config/ && flow-remove-types -d ./flow-files/src --all --pretty src/",
     "start-fetcher": "node ./flow-files/src/index.js",
