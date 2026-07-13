@@ -9,7 +9,7 @@
     "flow-remove-types": "flow-remove-types -d ./flow-files/config --all --pretty config/ && flow-remove-types -d ./flow-files/src --all --pretty src/",
     "start-fetcher": "node ./flow-files/src/index.js",
     "start-monitor": "node ./flow-files/src/index.js monitor",
-    "test:offline": "npm run flow-remove-types && node ./scripts/offline-smoke-test.js",
+    "test:offline": "npm run flow-remove-types && jest ./flow-files/src/offline-smoke.test.js --runInBand",
     "test": "npm run flow-remove-types && jest ./flow-files/src"
   },
   "packageManager": "npm@10.9.8",
