@@ -111,3 +111,26 @@ jobs:
       - name: run wallet endpoint contract tests
         run: |
           npm run test:wallet-contracts
+  coin-price-fetcher-smoke:
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'pull_request_review' &&
+        (github.event.review.state == 'approved' || contains(github.event.review.body, '/check')))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            script/coin-price-data-fetcher/package-lock.json
+      - name: install coin price fetcher
+        working-directory: script/coin-price-data-fetcher
+        run: |
+          npm ci
+      - name: run offline coin price fetcher smoke test
+        working-directory: script/coin-price-data-fetcher
+        run: |
+          npm run test:offline
