@@ -23,6 +23,9 @@ const readFile = (filePath) => fs.readFileSync(filePath, "utf8");
 
 const readJson = (filePath) => JSON.parse(readFile(filePath));
 
+const stableJson = (value) =>
+  JSON.stringify(value || {}, Object.keys(value || {}).sort());
+
 const parseVersion = (value) => {
   const match = String(value)
     .trim()
@@ -134,7 +137,42 @@ if (!satisfiesRange(nvmrcVersion, rootPackage.engines.node)) {
 
 for (const packageRoot of packageRoots) {
   const pkg = readJson(path.join(packageRoot.dir, "package.json"));
+  const lockfile = readJson(path.join(packageRoot.dir, "package-lock.json"));
+  const lockedRootPackage = lockfile.packages && lockfile.packages[""];
   const npmrc = readNpmrc(packageRoot.dir);
+
+  if (lockfile.lockfileVersion !== 3) {
+    fail(
+      `${packageRoot.name} package-lock.json must use lockfileVersion 3 for npm 10`
+    );
+  }
+
+  if (!lockedRootPackage) {
+    fail(`${packageRoot.name} package-lock.json must include packages[""]`);
+  } else {
+    if (lockfile.name !== pkg.name || lockedRootPackage.name !== pkg.name) {
+      fail(
+        `${packageRoot.name} package-lock.json name must match package.json`
+      );
+    }
+
+    if (
+      lockfile.version !== pkg.version ||
+      lockedRootPackage.version !== pkg.version
+    ) {
+      fail(
+        `${packageRoot.name} package-lock.json version must match package.json`
+      );
+    }
+
+    for (const key of ["dependencies", "devDependencies", "engines"]) {
+      if (stableJson(lockedRootPackage[key]) !== stableJson(pkg[key])) {
+        fail(
+          `${packageRoot.name} package-lock.json ${key} must match package.json`
+        );
+      }
+    }
+  }
 
   if (pkg.engines.node !== rootPackage.engines.node) {
     fail(
