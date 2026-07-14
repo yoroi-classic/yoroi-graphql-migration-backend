@@ -181,6 +181,47 @@ jobs:
       - name: run config default tests
         run: |
           npm run test:config-defaults
+  database-scaffold-tests:
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'pull_request_review' &&
+        (github.event.review.state == 'approved' || contains(github.event.review.body, '/check')))
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hasura
+          POSTGRES_PASSWORD: hasura
+          POSTGRES_DB: cexplorer
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hasura -d cexplorer"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      POSTGRES_USER: hasura
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_DB: cexplorer
+      POSTGRES_PASSWORD: hasura
+      POSTGRES_PORT: 5432
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            script/coin-price-data-fetcher/package-lock.json
+      - name: install
+        run: |
+          npm ci
+      - name: run database scaffold tests
+        run: |
+          npm run test:db-scaffold
   coin-price-fetcher-smoke:
     if: >-
       github.event_name == 'pull_request' ||
