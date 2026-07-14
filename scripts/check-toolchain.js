@@ -112,9 +112,44 @@ const readNpmrc = (dir) => {
   return settings;
 };
 
+const countLeadingSpaces = (line) => line.match(/^\s*/)[0].length;
+
+const getSetupNodeBlocks = (workflow) => {
+  const lines = workflow.split(/\r?\n/);
+  const blocks = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!/^\s*(?:-\s+)?uses:\s+["']?actions\/setup-node@/.test(line)) {
+      continue;
+    }
+
+    const blockIndent = countLeadingSpaces(line);
+    const blockLines = [line];
+
+    for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
+      const nextLine = lines[nextIndex];
+      if (nextLine.trim() && countLeadingSpaces(nextLine) <= blockIndent) {
+        break;
+      }
+
+      blockLines.push(nextLine);
+    }
+
+    blocks.push({ lineNumber: index + 1, text: blockLines.join("\n") });
+  }
+
+  return blocks;
+};
+
 const rootPackage = readJson(path.join(repoRoot, "package.json"));
 const nvmrcVersion = parseVersion(readFile(path.join(repoRoot, ".nvmrc")));
 const dockerfile = readFile(path.join(repoRoot, "Dockerfile"));
+const workflowDir = path.join(repoRoot, ".github", "workflows");
+const workflowFiles = fs
+  .readdirSync(workflowDir)
+  .filter((fileName) => /\.ya?ml$/.test(fileName))
+  .sort();
 const currentNodeVersion = parseVersion(process.version);
 const currentNpmVersion = getCurrentNpmVersion();
 const packageManagerMatch =
@@ -156,6 +191,32 @@ for (const match of dockerNodeImageMatches) {
       `Dockerfile node:${dockerImageTag} does not match .nvmrc ${nvmrcVersion.raw}`
     );
   }
+}
+
+let setupNodeBlockCount = 0;
+
+for (const workflowFile of workflowFiles) {
+  const workflowPath = path.join(workflowDir, workflowFile);
+  const setupNodeBlocks = getSetupNodeBlocks(readFile(workflowPath));
+  setupNodeBlockCount += setupNodeBlocks.length;
+
+  for (const block of setupNodeBlocks) {
+    const workflowLocation = `.github/workflows/${workflowFile}:${block.lineNumber}`;
+
+    if (/^\s*node-version\s*:/m.test(block.text)) {
+      fail(
+        `${workflowLocation} must not set node-version separately from .nvmrc`
+      );
+    }
+
+    if (!/^\s*node-version-file:\s*["']?\.nvmrc["']?\s*$/m.test(block.text)) {
+      fail(`${workflowLocation} must use node-version-file: ".nvmrc"`);
+    }
+  }
+}
+
+if (setupNodeBlockCount === 0) {
+  fail('GitHub workflows must use actions/setup-node with ".nvmrc"');
 }
 
 for (const packageRoot of packageRoots) {
@@ -241,5 +302,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Toolchain OK: Node ${process.version}, npm ${currentNpmVersion.raw}, engine-strict enabled for ${packageRoots.length} package roots, Docker Node image aligned with .nvmrc.`
+  `Toolchain OK: Node ${process.version}, npm ${currentNpmVersion.raw}, engine-strict enabled for ${packageRoots.length} package roots, Docker Node image and GitHub Actions Node setup aligned with .nvmrc.`
 );
