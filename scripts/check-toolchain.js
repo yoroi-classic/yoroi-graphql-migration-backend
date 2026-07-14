@@ -114,10 +114,16 @@ const readNpmrc = (dir) => {
 
 const rootPackage = readJson(path.join(repoRoot, "package.json"));
 const nvmrcVersion = parseVersion(readFile(path.join(repoRoot, ".nvmrc")));
+const dockerfile = readFile(path.join(repoRoot, "Dockerfile"));
 const currentNodeVersion = parseVersion(process.version);
 const currentNpmVersion = getCurrentNpmVersion();
 const packageManagerMatch =
   rootPackage.packageManager && rootPackage.packageManager.match(/^npm@(.+)$/);
+const dockerNodeImageMatches = [
+  ...dockerfile.matchAll(
+    /^\s*FROM\s+(?:--platform=\S+\s+)?node:([^\s]+)(?:\s+AS\s+\S+)?\s*$/gim
+  ),
+];
 
 if (!packageManagerMatch) {
   fail('root packageManager must be declared as "npm@<version>"');
@@ -133,6 +139,23 @@ if (!satisfiesRange(nvmrcVersion, rootPackage.engines.node)) {
   fail(
     `.nvmrc ${nvmrcVersion.raw} does not satisfy ${rootPackage.engines.node}`
   );
+}
+
+if (dockerNodeImageMatches.length === 0) {
+  fail("Dockerfile must use explicit node:<version> base images");
+}
+
+for (const match of dockerNodeImageMatches) {
+  const dockerImageTag = match[1];
+  const dockerNodeVersion = parseVersion(
+    dockerImageTag.split("@")[0].split("-")[0]
+  );
+
+  if (compareVersions(dockerNodeVersion, nvmrcVersion) !== 0) {
+    fail(
+      `Dockerfile node:${dockerImageTag} does not match .nvmrc ${nvmrcVersion.raw}`
+    );
+  }
 }
 
 for (const packageRoot of packageRoots) {
@@ -218,5 +241,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Toolchain OK: Node ${process.version}, npm ${currentNpmVersion.raw}, engine-strict enabled for ${packageRoots.length} package roots.`
+  `Toolchain OK: Node ${process.version}, npm ${currentNpmVersion.raw}, engine-strict enabled for ${packageRoots.length} package roots, Docker Node image aligned with .nvmrc.`
 );
