@@ -30,7 +30,7 @@
     "node-fetch": "^2.6.0"
   },
   "devDependencies": {
-    "jest": "^24.9.0"
+    "jest": "^30.4.2"
   },
   "jest": {
     "testEnvironment": "node"
