@@ -120,7 +120,7 @@ const getSetupNodeBlocks = (workflow) => {
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    if (!/^\s*-\s+uses:\s+["']?actions\/setup-node@/.test(line)) {
+    if (!/^\s*(?:-\s+)?uses:\s+["']?actions\/setup-node@/.test(line)) {
       continue;
     }
 
