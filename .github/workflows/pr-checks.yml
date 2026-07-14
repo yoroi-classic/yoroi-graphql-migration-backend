@@ -69,7 +69,7 @@ jobs:
             script/coin-price-data-fetcher/package-lock.json
       - name: install
         run: |
-          npm ci
+          npm ci --ignore-scripts
       - name: run eslint
         run: |
           npm run eslint
@@ -90,7 +90,7 @@ jobs:
             script/coin-price-data-fetcher/package-lock.json
       - name: install
         run: |
-          npm ci
+          npm ci --ignore-scripts
       - name: run prettier
         run: |
           npx prettier --check src
@@ -111,7 +111,7 @@ jobs:
             script/coin-price-data-fetcher/package-lock.json
       - name: install
         run: |
-          npm ci
+          npm ci --ignore-scripts
       - name: run build
         run: |
           npm run build
@@ -135,7 +135,7 @@ jobs:
             script/coin-price-data-fetcher/package-lock.json
       - name: install
         run: |
-          npm ci
+          npm ci --ignore-scripts
       - name: run wallet endpoint contract tests
         run: |
           npm run test:wallet-contracts
@@ -156,7 +156,7 @@ jobs:
             script/coin-price-data-fetcher/package-lock.json
       - name: install
         run: |
-          npm ci
+          npm ci --ignore-scripts
       - name: run route contract tests
         run: |
           npm run test:route-contracts
@@ -177,7 +177,7 @@ jobs:
             script/coin-price-data-fetcher/package-lock.json
       - name: install
         run: |
-          npm ci
+          npm ci --ignore-scripts
       - name: run config default tests
         run: |
           npm run test:config-defaults
@@ -218,7 +218,7 @@ jobs:
             script/coin-price-data-fetcher/package-lock.json
       - name: install
         run: |
-          npm ci
+          npm ci --ignore-scripts
       - name: run database scaffold tests
         run: |
           npm run test:db-scaffold
@@ -240,7 +240,7 @@ jobs:
       - name: install coin price fetcher
         working-directory: script/coin-price-data-fetcher
         run: |
-          npm ci
+          npm ci --ignore-scripts
       - name: run offline coin price fetcher smoke test
         working-directory: script/coin-price-data-fetcher
         run: |
