@@ -79,7 +79,7 @@ const satisfiesRange = (version, range) =>
 
 const getCurrentNpmVersion = () => {
   const userAgentMatch = (process.env.npm_config_user_agent || "").match(
-    /\bnpm\/([^\s]+)/
+    /\bnpm\/([^\s]+)/,
   );
 
   if (userAgentMatch) {
@@ -105,7 +105,7 @@ const readNpmrc = (dir) => {
       trimmed
         .slice(separatorIndex + 1)
         .trim()
-        .toLowerCase()
+        .toLowerCase(),
     );
   }
 
@@ -169,7 +169,7 @@ const getDependabotUpdateBlocks = (dependabotConfig) => {
       }
 
       const settingMatch = nextLine.match(
-        /^\s*(directory|interval|open-pull-requests-limit|versioning-strategy):\s*(.+?)\s*$/
+        /^\s*(directory|interval|open-pull-requests-limit|versioning-strategy):\s*(.+?)\s*$/,
       );
 
       if (settingMatch) {
@@ -189,7 +189,7 @@ const dockerfile = readFile(path.join(repoRoot, "Dockerfile"));
 const workflowDir = path.join(repoRoot, ".github", "workflows");
 const dependabotConfigPath = path.join(repoRoot, ".github", "dependabot.yml");
 const dependabotUpdates = getDependabotUpdateBlocks(
-  readFile(dependabotConfigPath)
+  readFile(dependabotConfigPath),
 );
 const workflowFiles = fs
   .readdirSync(workflowDir)
@@ -201,7 +201,7 @@ const packageManagerMatch =
   rootPackage.packageManager && rootPackage.packageManager.match(/^npm@(.+)$/);
 const dockerNodeImageMatches = [
   ...dockerfile.matchAll(
-    /^\s*FROM\s+(?:--platform=\S+\s+)?node:([^\s]+)(?:\s+AS\s+\S+)?\s*$/gim
+    /^\s*FROM\s+(?:--platform=\S+\s+)?node:([^\s]+)(?:\s+AS\s+\S+)?\s*$/gim,
   ),
 ];
 const dockerfileLines = dockerfile.split(/\r?\n/);
@@ -212,13 +212,13 @@ if (!packageManagerMatch) {
   !satisfiesRange(parseVersion(packageManagerMatch[1]), rootPackage.engines.npm)
 ) {
   fail(
-    `root packageManager ${rootPackage.packageManager} does not satisfy npm engine ${rootPackage.engines.npm}`
+    `root packageManager ${rootPackage.packageManager} does not satisfy npm engine ${rootPackage.engines.npm}`,
   );
 }
 
 if (!satisfiesRange(nvmrcVersion, rootPackage.engines.node)) {
   fail(
-    `.nvmrc ${nvmrcVersion.raw} does not satisfy ${rootPackage.engines.node}`
+    `.nvmrc ${nvmrcVersion.raw} does not satisfy ${rootPackage.engines.node}`,
   );
 }
 
@@ -229,12 +229,12 @@ if (dockerNodeImageMatches.length === 0) {
 for (const match of dockerNodeImageMatches) {
   const dockerImageTag = match[1];
   const dockerNodeVersion = parseVersion(
-    dockerImageTag.split("@")[0].split("-")[0]
+    dockerImageTag.split("@")[0].split("-")[0],
   );
 
   if (compareVersions(dockerNodeVersion, nvmrcVersion) !== 0) {
     fail(
-      `Dockerfile node:${dockerImageTag} does not match .nvmrc ${nvmrcVersion.raw}`
+      `Dockerfile node:${dockerImageTag} does not match .nvmrc ${nvmrcVersion.raw}`,
     );
   }
 }
@@ -243,17 +243,17 @@ const dockerRunLines = dockerfileLines
   .map((line, index) => ({ lineNumber: index + 1, text: line }))
   .filter((line) => /^\s*RUN\b/.test(line.text));
 const dockerNpmCiLines = dockerRunLines.filter((line) =>
-  /\bnpm\s+ci\b/.test(line.text)
+  /\bnpm\s+ci\b/.test(line.text),
 );
 const dockerNpmPruneLines = dockerRunLines.filter((line) =>
-  /\bnpm\s+prune\b/.test(line.text)
+  /\bnpm\s+prune\b/.test(line.text),
 );
 const hasNpmCommandFlag = (line, command, flag) => {
   const npmCommandPattern = new RegExp(`\\bnpm\\s+${command}\\b`);
   const flagPattern = new RegExp(`\\s${flag}(?:\\s|$)`);
 
   return line.text
-    .split(/\s+(?:&&|\|\||;)\s+/)
+    .split(/\s*(?:&&|\|\||;)\s*/)
     .filter((segment) => npmCommandPattern.test(segment))
     .every((segment) => flagPattern.test(segment));
 };
@@ -265,7 +265,7 @@ if (dockerNpmCiLines.length === 0) {
 for (const line of dockerNpmCiLines) {
   if (!hasNpmCommandFlag(line, "ci", "--ignore-scripts")) {
     fail(
-      `Dockerfile:${line.lineNumber} npm ci must use --ignore-scripts; run generated-artifact steps explicitly`
+      `Dockerfile:${line.lineNumber} npm ci must use --ignore-scripts; run generated-artifact steps explicitly`,
     );
   }
 }
@@ -273,7 +273,7 @@ for (const line of dockerNpmCiLines) {
 for (const line of dockerNpmPruneLines) {
   if (!hasNpmCommandFlag(line, "prune", "--ignore-scripts")) {
     fail(
-      `Dockerfile:${line.lineNumber} npm prune must use --ignore-scripts; lifecycle scripts are already run explicitly`
+      `Dockerfile:${line.lineNumber} npm prune must use --ignore-scripts; lifecycle scripts are already run explicitly`,
     );
   }
 }
@@ -286,11 +286,11 @@ if (
   !dockerRunLines.some(
     (line) =>
       line.text.includes("script/coin-price-data-fetcher") &&
-      /\bnpm\s+run\s+flow-remove-types\b/.test(line.text)
+      /\bnpm\s+run\s+flow-remove-types\b/.test(line.text),
   )
 ) {
   fail(
-    "Dockerfile must run coin-price-data-fetcher flow-remove-types after installing dependencies"
+    "Dockerfile must run coin-price-data-fetcher flow-remove-types after installing dependencies",
   );
 }
 
@@ -306,7 +306,7 @@ for (const workflowFile of workflowFiles) {
 
     if (/^\s*node-version\s*:/m.test(block.text)) {
       fail(
-        `${workflowLocation} must not set node-version separately from .nvmrc`
+        `${workflowLocation} must not set node-version separately from .nvmrc`,
       );
     }
 
@@ -349,25 +349,25 @@ for (const expectedUpdate of expectedDependabotUpdates) {
   const update = dependabotUpdates.find(
     (candidate) =>
       candidate["package-ecosystem"] === expectedUpdate.ecosystem &&
-      candidate.directory === expectedUpdate.directory
+      candidate.directory === expectedUpdate.directory,
   );
 
   if (!update) {
     fail(
-      `.github/dependabot.yml must include ${expectedUpdate.name} (${expectedUpdate.ecosystem} ${expectedUpdate.directory})`
+      `.github/dependabot.yml must include ${expectedUpdate.name} (${expectedUpdate.ecosystem} ${expectedUpdate.directory})`,
     );
     continue;
   }
 
   if (update.interval !== "weekly") {
     fail(
-      `.github/dependabot.yml:${update.lineNumber} ${expectedUpdate.name} must run weekly`
+      `.github/dependabot.yml:${update.lineNumber} ${expectedUpdate.name} must run weekly`,
     );
   }
 
   if (update["open-pull-requests-limit"] !== "3") {
     fail(
-      `.github/dependabot.yml:${update.lineNumber} ${expectedUpdate.name} must limit open pull requests to 3`
+      `.github/dependabot.yml:${update.lineNumber} ${expectedUpdate.name} must limit open pull requests to 3`,
     );
   }
 
@@ -376,7 +376,7 @@ for (const expectedUpdate of expectedDependabotUpdates) {
     update["versioning-strategy"] !== expectedUpdate.versioningStrategy
   ) {
     fail(
-      `.github/dependabot.yml:${update.lineNumber} ${expectedUpdate.name} must use versioning-strategy: ${expectedUpdate.versioningStrategy}`
+      `.github/dependabot.yml:${update.lineNumber} ${expectedUpdate.name} must use versioning-strategy: ${expectedUpdate.versioningStrategy}`,
     );
   }
 }
@@ -389,7 +389,7 @@ for (const packageRoot of packageRoots) {
 
   if (lockfile.lockfileVersion !== 3) {
     fail(
-      `${packageRoot.name} package-lock.json must use lockfileVersion 3 for npm 10`
+      `${packageRoot.name} package-lock.json must use lockfileVersion 3 for npm 10`,
     );
   }
 
@@ -398,7 +398,7 @@ for (const packageRoot of packageRoots) {
   } else {
     if (lockfile.name !== pkg.name || lockedRootPackage.name !== pkg.name) {
       fail(
-        `${packageRoot.name} package-lock.json name must match package.json`
+        `${packageRoot.name} package-lock.json name must match package.json`,
       );
     }
 
@@ -407,14 +407,14 @@ for (const packageRoot of packageRoots) {
       lockedRootPackage.version !== pkg.version
     ) {
       fail(
-        `${packageRoot.name} package-lock.json version must match package.json`
+        `${packageRoot.name} package-lock.json version must match package.json`,
       );
     }
 
     for (const key of ["dependencies", "devDependencies", "engines"]) {
       if (stableJson(lockedRootPackage[key]) !== stableJson(pkg[key])) {
         fail(
-          `${packageRoot.name} package-lock.json ${key} must match package.json`
+          `${packageRoot.name} package-lock.json ${key} must match package.json`,
         );
       }
     }
@@ -422,19 +422,19 @@ for (const packageRoot of packageRoots) {
 
   if (pkg.engines.node !== rootPackage.engines.node) {
     fail(
-      `${packageRoot.name} node engine ${pkg.engines.node} does not match root ${rootPackage.engines.node}`
+      `${packageRoot.name} node engine ${pkg.engines.node} does not match root ${rootPackage.engines.node}`,
     );
   }
 
   if (pkg.engines.npm !== rootPackage.engines.npm) {
     fail(
-      `${packageRoot.name} npm engine ${pkg.engines.npm} does not match root ${rootPackage.engines.npm}`
+      `${packageRoot.name} npm engine ${pkg.engines.npm} does not match root ${rootPackage.engines.npm}`,
     );
   }
 
   if (pkg.packageManager !== rootPackage.packageManager) {
     fail(
-      `${packageRoot.name} packageManager ${pkg.packageManager} does not match root ${rootPackage.packageManager}`
+      `${packageRoot.name} packageManager ${pkg.packageManager} does not match root ${rootPackage.packageManager}`,
     );
   }
 
@@ -444,13 +444,13 @@ for (const packageRoot of packageRoots) {
 
   if (!satisfiesRange(currentNodeVersion, pkg.engines.node)) {
     fail(
-      `current Node ${currentNodeVersion.raw} does not satisfy ${packageRoot.name} engine ${pkg.engines.node}`
+      `current Node ${currentNodeVersion.raw} does not satisfy ${packageRoot.name} engine ${pkg.engines.node}`,
     );
   }
 
   if (!satisfiesRange(currentNpmVersion, pkg.engines.npm)) {
     fail(
-      `current npm ${currentNpmVersion.raw} does not satisfy ${packageRoot.name} engine ${pkg.engines.npm}`
+      `current npm ${currentNpmVersion.raw} does not satisfy ${packageRoot.name} engine ${pkg.engines.npm}`,
     );
   }
 }
@@ -464,5 +464,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Toolchain OK: Node ${process.version}, npm ${currentNpmVersion.raw}, engine-strict enabled for ${packageRoots.length} package roots, Docker Node image, GitHub Actions Node setup, and Dependabot coverage aligned.`
+  `Toolchain OK: Node ${process.version}, npm ${currentNpmVersion.raw}, engine-strict enabled for ${packageRoots.length} package roots, Docker Node image, GitHub Actions Node setup, and Dependabot coverage aligned.`,
 );
