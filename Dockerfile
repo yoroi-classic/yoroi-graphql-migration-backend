@@ -6,8 +6,8 @@ RUN npm ci --ignore-scripts
 RUN npm run build
 RUN cd script/coin-price-data-fetcher && npm ci --ignore-scripts
 RUN cd script/coin-price-data-fetcher && npm run flow-remove-types
-RUN npm prune --omit=dev
-RUN cd script/coin-price-data-fetcher && npm prune --omit=dev
+RUN npm prune --omit=dev --ignore-scripts
+RUN cd script/coin-price-data-fetcher && npm prune --omit=dev --ignore-scripts
 
 FROM node:22.23.1-alpine
 RUN apk add --no-cache apk-cron shadow

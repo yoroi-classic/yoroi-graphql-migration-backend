@@ -245,15 +245,35 @@ const dockerRunLines = dockerfileLines
 const dockerNpmCiLines = dockerRunLines.filter((line) =>
   /\bnpm\s+ci\b/.test(line.text)
 );
+const dockerNpmPruneLines = dockerRunLines.filter((line) =>
+  /\bnpm\s+prune\b/.test(line.text)
+);
+const hasNpmCommandFlag = (line, command, flag) => {
+  const npmCommandPattern = new RegExp(`\\bnpm\\s+${command}\\b`);
+  const flagPattern = new RegExp(`\\s${flag}(?:\\s|$)`);
+
+  return line.text
+    .split(/\s+(?:&&|\|\||;)\s+/)
+    .filter((segment) => npmCommandPattern.test(segment))
+    .every((segment) => flagPattern.test(segment));
+};
 
 if (dockerNpmCiLines.length === 0) {
   fail("Dockerfile must install Node dependencies with npm ci");
 }
 
 for (const line of dockerNpmCiLines) {
-  if (!/\s--ignore-scripts(?:\s|$)/.test(line.text)) {
+  if (!hasNpmCommandFlag(line, "ci", "--ignore-scripts")) {
     fail(
       `Dockerfile:${line.lineNumber} npm ci must use --ignore-scripts; run generated-artifact steps explicitly`
+    );
+  }
+}
+
+for (const line of dockerNpmPruneLines) {
+  if (!hasNpmCommandFlag(line, "prune", "--ignore-scripts")) {
+    fail(
+      `Dockerfile:${line.lineNumber} npm prune must use --ignore-scripts; lifecycle scripts are already run explicitly`
     );
   }
 }
