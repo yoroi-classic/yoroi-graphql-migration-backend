@@ -15,6 +15,7 @@ on:
       - ".nvmrc"
       - ".npmrc"
       - "script/coin-price-data-fetcher/.npmrc"
+      - ".github/dependabot.yml"
       - ".github/workflows/**"
       - "Dockerfile"
       - ".dockerignore"
