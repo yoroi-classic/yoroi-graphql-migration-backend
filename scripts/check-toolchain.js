@@ -159,6 +159,7 @@ const dockerNodeImageMatches = [
     /^\s*FROM\s+(?:--platform=\S+\s+)?node:([^\s]+)(?:\s+AS\s+\S+)?\s*$/gim
   ),
 ];
+const dockerfileLines = dockerfile.split(/\r?\n/);
 
 if (!packageManagerMatch) {
   fail('root packageManager must be declared as "npm@<version>"');
@@ -191,6 +192,41 @@ for (const match of dockerNodeImageMatches) {
       `Dockerfile node:${dockerImageTag} does not match .nvmrc ${nvmrcVersion.raw}`
     );
   }
+}
+
+const dockerRunLines = dockerfileLines
+  .map((line, index) => ({ lineNumber: index + 1, text: line }))
+  .filter((line) => /^\s*RUN\b/.test(line.text));
+const dockerNpmCiLines = dockerRunLines.filter((line) =>
+  /\bnpm\s+ci\b/.test(line.text)
+);
+
+if (dockerNpmCiLines.length === 0) {
+  fail("Dockerfile must install Node dependencies with npm ci");
+}
+
+for (const line of dockerNpmCiLines) {
+  if (!/\s--ignore-scripts(?:\s|$)/.test(line.text)) {
+    fail(
+      `Dockerfile:${line.lineNumber} npm ci must use --ignore-scripts; run generated-artifact steps explicitly`
+    );
+  }
+}
+
+if (!dockerRunLines.some((line) => /\bnpm\s+run\s+build\b/.test(line.text))) {
+  fail("Dockerfile must run npm run build after installing root dependencies");
+}
+
+if (
+  !dockerRunLines.some(
+    (line) =>
+      line.text.includes("script/coin-price-data-fetcher") &&
+      /\bnpm\s+run\s+flow-remove-types\b/.test(line.text)
+  )
+) {
+  fail(
+    "Dockerfile must run coin-price-data-fetcher flow-remove-types after installing dependencies"
+  );
 }
 
 let setupNodeBlockCount = 0;
