@@ -142,10 +142,55 @@ const getSetupNodeBlocks = (workflow) => {
   return blocks;
 };
 
+const unquoteYamlValue = (value) => value.trim().replace(/^["']|["']$/g, "");
+
+const getDependabotUpdateBlocks = (dependabotConfig) => {
+  const lines = dependabotConfig.split(/\r?\n/);
+  const blocks = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const ecosystemMatch = line.match(/^\s*-\s+package-ecosystem:\s*(.+?)\s*$/);
+
+    if (!ecosystemMatch) {
+      continue;
+    }
+
+    const blockIndent = countLeadingSpaces(line);
+    const block = {
+      lineNumber: index + 1,
+      "package-ecosystem": unquoteYamlValue(ecosystemMatch[1]),
+    };
+
+    for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
+      const nextLine = lines[nextIndex];
+      if (nextLine.trim() && countLeadingSpaces(nextLine) <= blockIndent) {
+        break;
+      }
+
+      const settingMatch = nextLine.match(
+        /^\s*(directory|interval|open-pull-requests-limit|versioning-strategy):\s*(.+?)\s*$/
+      );
+
+      if (settingMatch) {
+        block[settingMatch[1]] = unquoteYamlValue(settingMatch[2]);
+      }
+    }
+
+    blocks.push(block);
+  }
+
+  return blocks;
+};
+
 const rootPackage = readJson(path.join(repoRoot, "package.json"));
 const nvmrcVersion = parseVersion(readFile(path.join(repoRoot, ".nvmrc")));
 const dockerfile = readFile(path.join(repoRoot, "Dockerfile"));
 const workflowDir = path.join(repoRoot, ".github", "workflows");
+const dependabotConfigPath = path.join(repoRoot, ".github", "dependabot.yml");
+const dependabotUpdates = getDependabotUpdateBlocks(
+  readFile(dependabotConfigPath)
+);
 const workflowFiles = fs
   .readdirSync(workflowDir)
   .filter((fileName) => /\.ya?ml$/.test(fileName))
@@ -255,6 +300,67 @@ if (setupNodeBlockCount === 0) {
   fail('GitHub workflows must use actions/setup-node with ".nvmrc"');
 }
 
+const expectedDependabotUpdates = [
+  {
+    ecosystem: "npm",
+    directory: "/",
+    name: "root npm dependencies",
+    versioningStrategy: "increase-if-necessary",
+  },
+  {
+    ecosystem: "npm",
+    directory: "/script/coin-price-data-fetcher",
+    name: "coin-price-data-fetcher npm dependencies",
+    versioningStrategy: "increase-if-necessary",
+  },
+  {
+    ecosystem: "github-actions",
+    directory: "/",
+    name: "GitHub Actions",
+  },
+  {
+    ecosystem: "docker",
+    directory: "/",
+    name: "Docker base images",
+  },
+];
+
+for (const expectedUpdate of expectedDependabotUpdates) {
+  const update = dependabotUpdates.find(
+    (candidate) =>
+      candidate["package-ecosystem"] === expectedUpdate.ecosystem &&
+      candidate.directory === expectedUpdate.directory
+  );
+
+  if (!update) {
+    fail(
+      `.github/dependabot.yml must include ${expectedUpdate.name} (${expectedUpdate.ecosystem} ${expectedUpdate.directory})`
+    );
+    continue;
+  }
+
+  if (update.interval !== "weekly") {
+    fail(
+      `.github/dependabot.yml:${update.lineNumber} ${expectedUpdate.name} must run weekly`
+    );
+  }
+
+  if (update["open-pull-requests-limit"] !== "3") {
+    fail(
+      `.github/dependabot.yml:${update.lineNumber} ${expectedUpdate.name} must limit open pull requests to 3`
+    );
+  }
+
+  if (
+    expectedUpdate.versioningStrategy &&
+    update["versioning-strategy"] !== expectedUpdate.versioningStrategy
+  ) {
+    fail(
+      `.github/dependabot.yml:${update.lineNumber} ${expectedUpdate.name} must use versioning-strategy: ${expectedUpdate.versioningStrategy}`
+    );
+  }
+}
+
 for (const packageRoot of packageRoots) {
   const pkg = readJson(path.join(packageRoot.dir, "package.json"));
   const lockfile = readJson(path.join(packageRoot.dir, "package-lock.json"));
@@ -338,5 +444,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Toolchain OK: Node ${process.version}, npm ${currentNpmVersion.raw}, engine-strict enabled for ${packageRoots.length} package roots, Docker Node image and GitHub Actions Node setup aligned with .nvmrc.`
+  `Toolchain OK: Node ${process.version}, npm ${currentNpmVersion.raw}, engine-strict enabled for ${packageRoots.length} package roots, Docker Node image, GitHub Actions Node setup, and Dependabot coverage aligned.`
 );
