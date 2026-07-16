@@ -32,6 +32,7 @@ import { handleGetMultiAssetTxMintMetadata } from "../src/services/multiAssetTxM
 import {
   handleTipStatusGet,
   handleTipStatusPost,
+  SAFE_BLOCK_DEPTH,
 } from "../src/services/tipStatus";
 import { mapTransactionFragsToResponse } from "../src/utils/mappers";
 
@@ -42,6 +43,12 @@ const apiResponseLimit = 50;
 const safeBlockHash = "9".repeat(64);
 const referenceBestBlockHash = "8".repeat(64);
 const referenceSafeBlockHash = "7".repeat(64);
+const bestBlockHeight = 987654;
+const safeBlockHeight = bestBlockHeight - SAFE_BLOCK_DEPTH;
+const referenceBlocks = new Map([
+  [referenceBestBlockHash, 987650],
+  [referenceSafeBlockHash, safeBlockHeight],
+]);
 
 const rows = <T extends QueryResultRow>(data: T[]): QueryResult<T> =>
   ({
@@ -71,7 +78,7 @@ class WalletContractPool implements PoolOrClient {
 
   async query<R extends QueryResultRow = any, I extends any[] = any[]>(
     queryTextOrConfig: string | QueryConfig<I>,
-    _values?: I
+    values?: I
   ): Promise<QueryResult<R>> {
     const text =
       typeof queryTextOrConfig === "string"
@@ -83,28 +90,36 @@ class WalletContractPool implements PoolOrClient {
       compactText.includes("FROM BLOCK") &&
       compactText.includes("WHERE block_no <=")
     ) {
+      expect(compactText).to.include(
+        "WHERE block_no <= (SELECT MAX(block_no) FROM block) - ($1)::int"
+      );
+      expect(compactText).to.include("ORDER BY id DESC LIMIT 1");
+      expect(values).to.deep.equal([SAFE_BLOCK_DEPTH]);
       return rows([
         {
           epoch: 42,
-          slot: 109,
-          globalSlot: 456775,
+          slot: 113,
+          globalSlot: 456779,
           hash: safeBlockHash,
-          height: 987640,
+          height: safeBlockHeight,
         },
       ]) as unknown as QueryResult<R>;
     }
 
     if (
       compactText.includes("FROM BLOCK") &&
-      compactText.includes("ORDER BY id DESC")
+      compactText.includes("ORDER BY id DESC") &&
+      !compactText.includes("WHERE block_no <=")
     ) {
+      expect(compactText).to.include("ORDER BY id DESC LIMIT 1");
+      expect(values).to.equal(undefined);
       return rows([
         {
           epoch: 42,
           slot: 123,
           globalSlot: 456789,
           hash: fixtures.blockHash,
-          height: 987654,
+          height: bestBlockHeight,
         },
       ]) as unknown as QueryResult<R>;
     }
@@ -114,24 +129,59 @@ class WalletContractPool implements PoolOrClient {
       compactText.includes("WHERE hash in") &&
       compactText.includes("AND block_no <=")
     ) {
-      return rows([
-        {
-          hash: referenceSafeBlockHash,
-          blockNumber: 987640,
-        },
-      ]) as unknown as QueryResult<R>;
+      expect(compactText).to.include("AND block_no IS NOT NULL");
+      expect(compactText).to.include(
+        "AND block_no <= (SELECT MAX(block_no) FROM block) - ($2)::int"
+      );
+      expect(compactText).to.include("ORDER BY block_no DESC LIMIT 1");
+      expect(values?.[1]).to.equal(SAFE_BLOCK_DEPTH);
+
+      const requestedHashes = values?.[0];
+      expect(requestedHashes).to.be.an("array");
+      const matchingBlocks = [...referenceBlocks]
+        .filter(
+          ([hash, height]) =>
+            requestedHashes.includes(hash) && height <= safeBlockHeight
+        )
+        .sort(([, leftHeight], [, rightHeight]) => rightHeight - leftHeight);
+
+      return rows(
+        matchingBlocks.length === 0
+          ? []
+          : [
+              {
+                hash: matchingBlocks[0][0],
+                blockNumber: matchingBlocks[0][1],
+              },
+            ]
+      ) as unknown as QueryResult<R>;
     }
 
     if (
       compactText.includes("FROM block") &&
-      compactText.includes("WHERE hash in")
+      compactText.includes("WHERE hash in") &&
+      !compactText.includes("AND block_no <=")
     ) {
-      return rows([
-        {
-          hash: referenceBestBlockHash,
-          blockNumber: 987650,
-        },
-      ]) as unknown as QueryResult<R>;
+      expect(compactText).to.include("AND block_no IS NOT NULL");
+      expect(compactText).to.include("ORDER BY block_no DESC LIMIT 1");
+      expect(values).to.have.length(1);
+
+      const requestedHashes = values?.[0];
+      expect(requestedHashes).to.be.an("array");
+      const matchingBlocks = [...referenceBlocks]
+        .filter(([hash]) => requestedHashes.includes(hash))
+        .sort(([, leftHeight], [, rightHeight]) => rightHeight - leftHeight);
+
+      return rows(
+        matchingBlocks.length === 0
+          ? []
+          : [
+              {
+                hash: matchingBlocks[0][0],
+                blockNumber: matchingBlocks[0][1],
+              },
+            ]
+      ) as unknown as QueryResult<R>;
     }
 
     if (
@@ -550,7 +600,7 @@ describe("wallet endpoint contracts", function () {
     });
   });
 
-  it("keeps tip status and reference point response shapes stable", async () => {
+  it("keeps tip status and reference response contracts stable", async () => {
     const tipStatus = await client.get("/v2/tipStatus");
     expect(tipStatus.status).to.equal(200);
     expect(tipStatus.data).to.deep.equal({
@@ -559,14 +609,14 @@ describe("wallet endpoint contracts", function () {
         slot: 123,
         globalSlot: 456789,
         hash: fixtures.blockHash,
-        height: 987654,
+        height: bestBlockHeight,
       },
       safeBlock: {
         epoch: 42,
-        slot: 109,
-        globalSlot: 456775,
+        slot: 113,
+        globalSlot: 456779,
         hash: safeBlockHash,
-        height: 987640,
+        height: safeBlockHeight,
       },
     });
 
@@ -582,19 +632,32 @@ describe("wallet endpoint contracts", function () {
         slot: 123,
         globalSlot: 456789,
         hash: fixtures.blockHash,
-        height: 987654,
+        height: bestBlockHeight,
       },
       safeBlock: {
         epoch: 42,
-        slot: 109,
-        globalSlot: 456775,
+        slot: 113,
+        globalSlot: 456779,
         hash: safeBlockHash,
-        height: 987640,
+        height: safeBlockHeight,
       },
       reference: {
         lastFoundBestBlock: referenceBestBlockHash,
         lastFoundSafeBlock: referenceSafeBlockHash,
       },
+    });
+  });
+
+  it("pins the missing reference point rollback response", async () => {
+    const missingReference = await client.post("/v2/tipStatus", {
+      reference: {
+        bestBlocks: ["de".repeat(32), "ad".repeat(32)],
+      },
+    });
+
+    expect(missingReference.status).to.equal(500);
+    expect(missingReference.data).to.deep.equal({
+      error: { response: "REFERENCE_POINT_BLOCK_NOT_FOUND" },
     });
   });
 
