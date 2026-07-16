@@ -1,7 +1,6 @@
 // @flow
-const util = require('util');
 const config = require('config');
-const AWS = require('aws-sdk');
+const { PutObjectCommand, S3Client } = require('@aws-sdk/client-s3');
 const logger = require('./logger');
 
 import type { Ticker } from './types';
@@ -13,11 +12,12 @@ function getS3() {
     return _S3;
   }
 
-  AWS.config.update({region: config.get("s3.region")});
-
-  _S3 = new AWS.S3({
-    accessKeyId: config.get('s3.accessKeyId'),
-    secretAccessKey: config.get('s3.secretAccessKey'),
+  _S3 = new S3Client({
+    region: config.get('s3.region'),
+    credentials: {
+      accessKeyId: config.get('s3.accessKeyId'),
+      secretAccessKey: config.get('s3.secretAccessKey'),
+    },
   });
 
   return _S3;
@@ -39,7 +39,7 @@ async function upload(ticker: Ticker): Promise<void> {
       logger.info('dry run:', uploadParams);
     } else {
       try {
-        resp = await util.promisify(S3.upload.bind(S3))(uploadParams);
+        resp = await S3.send(new PutObjectCommand(uploadParams));
       } catch (error) {
         logger.error('upload failed:', error);
         continue;

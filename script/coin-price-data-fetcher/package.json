@@ -10,7 +10,7 @@
     "flow-remove-types": "flow-remove-types -d ./flow-files/config --all --pretty config/ && flow-remove-types -d ./flow-files/src --all --pretty src/",
     "start-fetcher": "node ./flow-files/src/index.js",
     "start-monitor": "node ./flow-files/src/index.js monitor",
-    "test:offline": "npm run flow-remove-types && jest ./flow-files/src/offline-smoke.test.js --runInBand",
+    "test:offline": "npm run flow-remove-types && jest ./flow-files/src/offline-smoke.test.js ./flow-files/src/uploader.test.js --runInBand",
     "test": "npm run flow-remove-types && jest ./flow-files/src"
   },
   "packageManager": "npm@10.9.8",
@@ -21,8 +21,8 @@
     "npm": ">=10.0.0 <11"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1088.0",
     "@yoroi-classic/cardano-serialization-lib-nodejs": "git+https://github.com/yoroi-classic/cardano-serialization-lib.git#186d6704bd05b8d2abd5f1342292602a1e31deaf",
-    "aws-sdk": "^2.1057.0",
     "bunyan": "^1.8.12",
     "config": "^3.2.2",
     "flow": "^0.2.3",
