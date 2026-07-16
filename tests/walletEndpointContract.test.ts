@@ -29,12 +29,19 @@ import { filterUsedAddresses } from "../src/services/filterUsedAddress";
 import { handleGetAccountState } from "../src/services/accountState";
 import { handlePoolInfo } from "../src/services/poolInfo";
 import { handleGetMultiAssetTxMintMetadata } from "../src/services/multiAssetTxMint";
+import {
+  handleTipStatusGet,
+  handleTipStatusPost,
+} from "../src/services/tipStatus";
 import { mapTransactionFragsToResponse } from "../src/utils/mappers";
 
 import { walletContractFixtures as fixtures } from "./fixtures/walletEndpointContracts";
 
 const addressesRequestLimit = 500;
 const apiResponseLimit = 50;
+const safeBlockHash = "9".repeat(64);
+const referenceBestBlockHash = "8".repeat(64);
+const referenceSafeBlockHash = "7".repeat(64);
 
 const rows = <T extends QueryResultRow>(data: T[]): QueryResult<T> =>
   ({
@@ -74,6 +81,21 @@ class WalletContractPool implements PoolOrClient {
 
     if (
       compactText.includes("FROM BLOCK") &&
+      compactText.includes("WHERE block_no <=")
+    ) {
+      return rows([
+        {
+          epoch: 42,
+          slot: 109,
+          globalSlot: 456775,
+          hash: safeBlockHash,
+          height: 987640,
+        },
+      ]) as unknown as QueryResult<R>;
+    }
+
+    if (
+      compactText.includes("FROM BLOCK") &&
       compactText.includes("ORDER BY id DESC")
     ) {
       return rows([
@@ -83,6 +105,31 @@ class WalletContractPool implements PoolOrClient {
           globalSlot: 456789,
           hash: fixtures.blockHash,
           height: 987654,
+        },
+      ]) as unknown as QueryResult<R>;
+    }
+
+    if (
+      compactText.includes("FROM block") &&
+      compactText.includes("WHERE hash in") &&
+      compactText.includes("AND block_no <=")
+    ) {
+      return rows([
+        {
+          hash: referenceSafeBlockHash,
+          blockNumber: 987640,
+        },
+      ]) as unknown as QueryResult<R>;
+    }
+
+    if (
+      compactText.includes("FROM block") &&
+      compactText.includes("WHERE hash in")
+    ) {
+      return rows([
+        {
+          hash: referenceBestBlockHash,
+          blockNumber: 987650,
         },
       ]) as unknown as QueryResult<R>;
     }
@@ -383,6 +430,16 @@ const createContractRouter = (
     { path: "/status", method: "get", handler: getStatus },
     { path: "/v2/bestblock", method: "get", handler: bestBlock(typedPool) },
     {
+      path: "/v2/tipStatus",
+      method: "get",
+      handler: handleTipStatusGet(typedPool),
+    },
+    {
+      path: "/v2/tipStatus",
+      method: "post",
+      handler: handleTipStatusPost(typedPool),
+    },
+    {
       path: "/v2/addresses/filterUsed",
       method: "post",
       handler: filterUsedAddresses(typedPool),
@@ -490,6 +547,54 @@ describe("wallet endpoint contracts", function () {
       globalSlot: 456789,
       hash: fixtures.blockHash,
       height: 987654,
+    });
+  });
+
+  it("keeps tip status and reference point response shapes stable", async () => {
+    const tipStatus = await client.get("/v2/tipStatus");
+    expect(tipStatus.status).to.equal(200);
+    expect(tipStatus.data).to.deep.equal({
+      bestBlock: {
+        epoch: 42,
+        slot: 123,
+        globalSlot: 456789,
+        hash: fixtures.blockHash,
+        height: 987654,
+      },
+      safeBlock: {
+        epoch: 42,
+        slot: 109,
+        globalSlot: 456775,
+        hash: safeBlockHash,
+        height: 987640,
+      },
+    });
+
+    const referencedTipStatus = await client.post("/v2/tipStatus", {
+      reference: {
+        bestBlocks: [referenceBestBlockHash, referenceSafeBlockHash],
+      },
+    });
+    expect(referencedTipStatus.status).to.equal(200);
+    expect(referencedTipStatus.data).to.deep.equal({
+      bestBlock: {
+        epoch: 42,
+        slot: 123,
+        globalSlot: 456789,
+        hash: fixtures.blockHash,
+        height: 987654,
+      },
+      safeBlock: {
+        epoch: 42,
+        slot: 109,
+        globalSlot: 456775,
+        hash: safeBlockHash,
+        height: 987640,
+      },
+      reference: {
+        lastFoundBestBlock: referenceBestBlockHash,
+        lastFoundSafeBlock: referenceSafeBlockHash,
+      },
     });
   });
 
