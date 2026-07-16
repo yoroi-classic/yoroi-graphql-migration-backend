@@ -13,6 +13,7 @@
     "dev": "tsc-watch --onSuccess \"node ./dist/index.js\"",
     "eslint": "eslint src tests",
     "test": "mocha -r ts-node/register tests/**/*.test.ts --slow 0",
+    "test:unit": "mocha -r ts-node/register src/**/*.test.ts --slow 0",
     "test:config-defaults": "mocha -r ts-node/register tests/configDefaults.test.ts --slow 0",
     "test:db-scaffold": "mocha -r ts-node/register tests/dbScaffold.test.ts --slow 0",
     "test:route-contracts": "mocha -r ts-node/register tests/applyRoutes.test.ts --slow 0",

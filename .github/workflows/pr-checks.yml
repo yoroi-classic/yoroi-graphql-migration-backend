@@ -95,6 +95,25 @@ jobs:
       - name: run prettier
         run: |
           npx prettier --check src
+  unit-tests:
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'pull_request_review' &&
+        (github.event.review.state == 'approved' || contains(github.event.review.body, '/check')))
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+      - name: install
+        run: |
+          npm ci --ignore-scripts
+      - name: run unit tests
+        run: |
+          npm run test:unit
   build:
     if: >-
       github.event_name == 'pull_request' ||

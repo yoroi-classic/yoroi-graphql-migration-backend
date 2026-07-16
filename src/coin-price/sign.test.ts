@@ -43,3 +43,34 @@ it("sign and verify a ticker", () => {
     )
   ).to.equal(false);
 });
+
+it("serializes ticker prices in currency order", () => {
+  const reorderedTicker = {
+    ...TICKER,
+    prices: { KRW: 1, JPY: 10, CNY: 3, USD: 0.5 },
+  };
+
+  expect(serializeTicker(reorderedTicker)).to.deep.equal(
+    serializeTicker(TICKER)
+  );
+});
+
+it("rejects a signature when signed ticker data changes", () => {
+  const privateKey = PrivateKey.from_extended_bytes(
+    Buffer.from(PRIVATE_KEY, "hex")
+  );
+  const publicKey = PublicKey.from_bytes(Buffer.from(PUBLIC_KEY, "hex"));
+  const signature = sign(TICKER, serializeTicker, privateKey);
+
+  expect(
+    verify(
+      {
+        ...TICKER,
+        prices: { ...TICKER.prices, USD: 0.6 },
+      },
+      serializeTicker,
+      signature,
+      publicKey
+    )
+  ).to.equal(false);
+});
