@@ -33,3 +33,15 @@ test('uploads ticker data with an S3 PutObject command', async () => {
     Key: 'prices-ADA-1234567890.json',
   });
 });
+
+test('retries a failed S3 PutObject command', async () => {
+  const send = jest.spyOn(S3Client.prototype, 'send')
+    .mockRejectedValueOnce(new Error('temporary S3 failure'))
+    .mockResolvedValue({ ETag: '"etag"' });
+
+  await uploader.upload(ticker);
+
+  expect(send).toHaveBeenCalledTimes(2);
+  expect(send.mock.calls[0][0]).toBeInstanceOf(PutObjectCommand);
+  expect(send.mock.calls[1][0]).toBeInstanceOf(PutObjectCommand);
+});
