@@ -158,9 +158,10 @@ jobs:
       - name: install
         run: |
           npm ci --ignore-scripts
-      - name: run route contract tests
+      - name: run route and retirement traffic contract tests
         run: |
           npm run test:route-contracts
+          npm run test:retirement-traffic
   config-default-tests:
     if: >-
       github.event_name == 'pull_request' ||
