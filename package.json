@@ -16,6 +16,7 @@
     "test:config-defaults": "mocha -r ts-node/register tests/configDefaults.test.ts --slow 0",
     "test:db-scaffold": "mocha -r ts-node/register tests/dbScaffold.test.ts --slow 0",
     "test:route-contracts": "mocha -r ts-node/register tests/applyRoutes.test.ts --slow 0",
+    "test:retirement-traffic": "mocha -r ts-node/register tests/retirementTraffic.test.ts --slow 0",
     "test:wallet-contracts": "mocha -r ts-node/register tests/walletEndpointContract.test.ts --slow 0",
     "testtxhist": "mocha -r ts-node/register tests/txHistory.test.ts",
     "prettier": "npx prettier --write src"

@@ -66,8 +66,8 @@ export const handleTxStatus =
           };
         }
         response.submissionStatus = submissionStatus;
-      } catch (err) {
-        console.error(err);
+      } catch (_err) {
+        console.error("Transaction status queue lookup failed");
       }
     }
 

@@ -113,7 +113,9 @@ deployment and current released client versions.
 - [ ] Route-normalized traffic metrics from
       [`yoroi-graphql-migration-backend#44`](https://github.com/yoroi-classic/yoroi-graphql-migration-backend/issues/44)
       cover every route family in this document without recording addresses,
-      stake keys, transaction hashes, or request bodies.
+      stake keys, transaction hashes, or request bodies. Configure and operate
+      the observation described in
+      [`retirement-traffic-observation.md`](./retirement-traffic-observation.md).
 - [ ] Required-client traffic is zero for the human-approved observation
       period, split by client version so old supported releases are visible.
 - [ ] Unknown traffic is identified by owner and migrated, or explicitly

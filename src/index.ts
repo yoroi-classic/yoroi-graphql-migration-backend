@@ -73,6 +73,10 @@ import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
 
 import installCoinPriceHandlers from "./coin-price/handler";
+import {
+  createRetirementTrafficMiddleware,
+  recordRetirementWebSocketConnection,
+} from "./retirementTraffic";
 
 const pool = new Pool({
   user: config.get("db.user"),
@@ -121,6 +125,7 @@ const middlewares = [
 ];
 
 applyMiddleware(middlewares, router);
+router.use(createRetirementTrafficMiddleware());
 
 const port: number = config.get("server.port");
 const addressesRequestLimit: number = config.get("server.addressRequestLimit");
@@ -697,7 +702,10 @@ router.use(Sentry.Handlers.errorHandler());
 const server = http.createServer(router);
 
 const wss = new websockets.Server({ server });
-wss.on("connection", connectionHandler(pool));
+wss.on("connection", (ws, request) => {
+  recordRetirementWebSocketConnection(request);
+  connectionHandler(pool)(ws as unknown as WebSocket);
+});
 
 server.listen(port, async () => {
   console.log(

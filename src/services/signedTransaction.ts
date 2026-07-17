@@ -32,8 +32,8 @@ const submitToQueue = async (req: Request, res: Response) => {
       headers: contentTypeHeaders,
     });
     res.status(200).send({ txId });
-  } catch (err) {
-    console.error(err);
+  } catch (_err) {
+    console.error("Signed transaction queue submission failed");
     res.status(500).send("Error submitting the TX");
   }
 };
@@ -50,7 +50,6 @@ const submit = async (req: Request, res: Response) => {
     if (endpointResponse?.status === 202) {
       if (endpointResponse.data.Left) {
         const msg = `Transaction was rejected: ${endpointResponse.data.Left}`;
-        console.log("signedTransaction request body: " + req.body.signedTx);
         throw Error(msg);
       }
       res.send([]);

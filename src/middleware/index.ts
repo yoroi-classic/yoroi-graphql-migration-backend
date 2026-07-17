@@ -35,14 +35,11 @@ export const handleCamelCaseResponse = (
 
 export const logErrors = (
   err: Error,
-  req: Request,
-  res: Response,
+  _req: Request,
+  _res: Response,
   next: NextFunction
 ): void => {
-  const errStr = `ERROR url: ${req.url}\n      stack: ${
-    err.stack
-  }\n      message: ${err.message}\n      request: ${JSON.stringify(req.body)}`;
-  console.log(errStr);
+  console.error("Request failed", { name: err.name });
   next(err);
 };
 
