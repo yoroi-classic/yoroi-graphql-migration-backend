@@ -6,6 +6,7 @@ import { Certificate, MirCertPot, TransactionFrag } from "../src/Transactions/ty
 import * as R from "ramda";
 import { bech32 } from "bech32";
 import { Prefixes } from "../src/utils/cip5";
+import { errorCodes } from "../src/errorCodes";
 
 const { encode, toWords } = bech32;
 
@@ -143,11 +144,11 @@ const certificateDeregistrationRewardAddresses = {
 
 const testableUri = endpoint + "v2/txs/history";
 
-const expectReferenceError = (err: unknown): void => {
+const expectReferenceError = (err: unknown, code: string): void => {
   if (!axios.isAxiosError(err) || !err.response) throw err;
 
   expect(err.response.status).to.be.equal(500);
-  expect(err.response.data.error.code).to.be.equal("INTERNAL_SERVER_ERROR");
+  expect(err.response.data.error.code).to.be.equal(code);
 };
 
 describe("/txs/history", function() {
@@ -172,7 +173,7 @@ describe("/txs/history", function() {
       });
       expect(1).to.be.equal(0); // equivalent to asset false
     } catch (err) {
-      expectReferenceError(err);
+      expectReferenceError(err, errorCodes.referenceBestBlockMismatch);
     }
   });
   it("should throw reference errors for a tx that doesn't exist.", async() => {
@@ -187,7 +188,7 @@ describe("/txs/history", function() {
       });
       expect(1).to.be.equal(0); // equivalent to asset false
     } catch (err) {
-      expectReferenceError(err);
+      expectReferenceError(err, errorCodes.referenceTxNotFound);
     }
   });
   it("should throw reference errors for a tx that doesn't match the block in after.", async() => {
@@ -202,7 +203,7 @@ describe("/txs/history", function() {
       });
       expect(1).to.be.equal(0); // equivalent to asset false
     } catch (err) {
-      expectReferenceError(err);
+      expectReferenceError(err, errorCodes.referenceBlockMismatch);
     }
   });
 

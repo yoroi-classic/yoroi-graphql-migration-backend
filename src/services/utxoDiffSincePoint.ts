@@ -8,6 +8,7 @@ import {
   getLatestSafeBlockFromHashes,
 } from "../utils/queries/block";
 import { getTransactionRowByHash } from "../utils/queries/transaction";
+import { errorCodes, StableApiError } from "../errorCodes";
 import {
   assertNever,
   validateAddressesReq,
@@ -366,7 +367,7 @@ const resolveBestblocksRequest =
       getLatestBestBlockFromHashes(pool)(hashes),
     ]);
     if (bestMatch == null) {
-      throw new Error("REFERENCE_POINT_BLOCK_NOT_FOUND");
+      throw new StableApiError(errorCodes.referencePointBlockNotFound);
     }
     return {
       lastFoundSafeblock: safeMatch?.hash,
@@ -390,7 +391,7 @@ export const handleUtxoDiffSincePoint =
 
     const untilBlock = await getBlock(pool)(untilBlockHash);
     if (!untilBlock) {
-      throw new Error("REFERENCE_BESTBLOCK_NOT_FOUND");
+      throw new StableApiError(errorCodes.referenceBestBlockNotFound);
     }
 
     const { lastFoundSafeblock, lastFoundBestblock, bestReferencePoint } =
@@ -404,7 +405,7 @@ export const handleUtxoDiffSincePoint =
 
     const afterBlock = await getBlock(pool)(afterPoint.blockHash);
     if (!afterBlock) {
-      throw new Error("REFERENCE_POINT_BLOCK_NOT_FOUND");
+      throw new StableApiError(errorCodes.referencePointBlockNotFound);
     }
 
     const addressTypes = getAddressesByType(addresses);

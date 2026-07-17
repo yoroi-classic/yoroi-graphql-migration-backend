@@ -267,7 +267,6 @@ describe("retirement traffic evidence", function () {
     expect(middleware).to.be.greaterThan(-1);
     expect(recorder).to.be.lessThan(middleware);
   });
-
   it("logs only a stable code without copying request or error text", () => {
     const logged: unknown[][] = [];
     const originalConsoleError = console.error;

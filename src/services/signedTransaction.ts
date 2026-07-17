@@ -75,7 +75,10 @@ export const handleSignedTx = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  if (!req.body.signedTx) {
+  if (
+    typeof req.body?.signedTx !== "string" ||
+    req.body.signedTx.length === 0
+  ) {
     throw new StableApiError(errorCodes.invalidRequest);
   }
 

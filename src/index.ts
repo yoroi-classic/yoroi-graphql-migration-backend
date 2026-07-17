@@ -77,6 +77,7 @@ import {
   createRetirementTrafficMiddleware,
   recordRetirementWebSocketConnection,
 } from "./retirementTraffic";
+import { errorCodes, StableApiError } from "./errorCodes";
 
 const pool = new Pool({
   user: config.get("db.user"),
@@ -223,20 +224,20 @@ const txHistory =
           untilBlockNum.kind === "error" &&
           untilBlockNum.errMsg === utils.errMsgs.noValue
         ) {
-          throw new Error("REFERENCE_BEST_BLOCK_MISMATCH");
+          throw new StableApiError(errorCodes.referenceBestBlockMismatch);
         }
         if (
           afterBlockInfo.kind === "error" &&
           typeof referenceTx !== "undefined"
         ) {
-          throw new Error("REFERENCE_TX_NOT_FOUND");
+          throw new StableApiError(errorCodes.referenceTxNotFound);
         }
 
         if (
           afterBlockInfo.kind === "ok" &&
           afterBlockInfo.value.block.hash !== referenceBlock
         ) {
-          throw new Error("REFERENCE_BLOCK_MISMATCH");
+          throw new StableApiError(errorCodes.referenceBlockMismatch);
         }
 
         // when things are running smoothly, we would never hit this case case

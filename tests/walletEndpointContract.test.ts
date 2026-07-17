@@ -307,16 +307,16 @@ const txHistory =
       untilBlockNum.kind === "error" &&
       untilBlockNum.errMsg === utils.errMsgs.noValue
     ) {
-      throw new Error("REFERENCE_BEST_BLOCK_MISMATCH");
+      throw new StableApiError(errorCodes.referenceBestBlockMismatch);
     }
     if (afterBlockInfo.kind === "error" && typeof referenceTx !== "undefined") {
-      throw new Error("REFERENCE_TX_NOT_FOUND");
+      throw new StableApiError(errorCodes.referenceTxNotFound);
     }
     if (
       afterBlockInfo.kind === "ok" &&
       afterBlockInfo.value.block.hash !== referenceBlock
     ) {
-      throw new Error("REFERENCE_BLOCK_MISMATCH");
+      throw new StableApiError(errorCodes.referenceBlockMismatch);
     }
 
     if (untilBlockNum.kind !== "ok") {
@@ -351,7 +351,10 @@ const directSignedTxContractHandler: SignedTxContractHandler = async (
   req,
   res
 ) => {
-  if (!req.body.signedTx) {
+  if (
+    typeof req.body?.signedTx !== "string" ||
+    req.body.signedTx.length === 0
+  ) {
     throw new StableApiError(errorCodes.invalidRequest);
   }
 
@@ -362,7 +365,10 @@ const queuedSignedTxContractHandler: SignedTxContractHandler = async (
   req,
   res
 ) => {
-  if (!req.body.signedTx) {
+  if (
+    typeof req.body?.signedTx !== "string" ||
+    req.body.signedTx.length === 0
+  ) {
     throw new StableApiError(errorCodes.invalidRequest);
   }
 

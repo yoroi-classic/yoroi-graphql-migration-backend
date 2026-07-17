@@ -2,6 +2,7 @@ import config from "config";
 
 import { Pool } from "pg";
 import { Request, Response } from "express";
+import { errorCodes, StableApiError } from "../errorCodes";
 
 export const SAFE_BLOCK_DEPTH = parseInt(config.get("safeBlockDifference"));
 
@@ -98,13 +99,13 @@ export const handleTipStatusPost =
     ]);
 
     if (bestBlockFromReferenceResult.rowCount === 0) {
-      throw new Error("REFERENCE_POINT_BLOCK_NOT_FOUND");
+      throw new StableApiError(errorCodes.referencePointBlockNotFound);
     }
 
     const lastFoundBestBlock: string =
       bestBlockFromReferenceResult.rows[0].hash;
     if (safeBlockFromReferenceResult.rowCount === 0) {
-      throw new Error("REFERENCE_POINT_BLOCK_NOT_FOUND");
+      throw new StableApiError(errorCodes.referencePointBlockNotFound);
     }
     const lastFoundSafeBlock: string =
       safeBlockFromReferenceResult.rows[0].hash;

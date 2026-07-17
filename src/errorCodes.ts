@@ -3,6 +3,12 @@ export const errorCodes = {
   coinPriceUnavailable: "COIN_PRICE_UNAVAILABLE",
   invalidRequest: "INVALID_REQUEST",
   transactionSubmissionFailed: "TRANSACTION_SUBMISSION_FAILED",
+  referenceBestBlockMismatch: "REFERENCE_BEST_BLOCK_MISMATCH",
+  referenceTxNotFound: "REFERENCE_TX_NOT_FOUND",
+  referenceBlockMismatch: "REFERENCE_BLOCK_MISMATCH",
+  referencePointBlockNotFound: "REFERENCE_POINT_BLOCK_NOT_FOUND",
+  referenceBestBlockNotFound: "REFERENCE_BESTBLOCK_NOT_FOUND",
+  bestBlockReferenceMismatch: "BESTBLOCK_REFERENCE_MISMATCH",
 } as const;
 
 export type ErrorCode = typeof errorCodes[keyof typeof errorCodes];
@@ -17,26 +23,16 @@ export class StableApiError extends Error {
   }
 }
 
-export const errorCodeFor = (error: Error): ErrorCode =>
+export const errorCodeFor = (error: unknown): ErrorCode =>
   error instanceof StableApiError ? error.code : errorCodes.internalServerError;
 
 export type PrivacySafeErrorDetails = {
   error_code: ErrorCode;
-  stack_frames?: string;
 };
 
 export const privacySafeErrorDetails = (
-  error: Error,
+  error: unknown,
   errorCode: ErrorCode = errorCodeFor(error)
 ): PrivacySafeErrorDetails => {
-  const stackFrames = error.stack
-    ?.split("\n")
-    .slice(1)
-    .filter((line) => /^\s+at\s/.test(line))
-    .slice(0, 12)
-    .join("\n");
-  return {
-    error_code: errorCode,
-    ...(stackFrames ? { stack_frames: stackFrames } : {}),
-  };
+  return { error_code: errorCode };
 };

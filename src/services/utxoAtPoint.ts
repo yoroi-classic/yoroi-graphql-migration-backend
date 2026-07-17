@@ -10,6 +10,7 @@ import {
 } from "../utils";
 
 import { getBlock } from "../utils/queries/block";
+import { errorCodes, StableApiError } from "../errorCodes";
 
 const addressesRequestLimit: number = config.get("server.addressRequestLimit");
 
@@ -81,7 +82,7 @@ export const utxoAtPoint =
           req.body.referenceBlockHash
         );
         if (!referenceBlock) {
-          throw new Error("REFERENCE_POINT_BLOCK_NOT_FOUND");
+          throw new StableApiError(errorCodes.referencePointBlockNotFound);
         }
 
         const result = await pool.query(utxoAtPointQuery, [

@@ -1,10 +1,13 @@
 import { expect } from "chai";
 import axios from "axios";
+import { readFileSync } from "fs";
+import path from "path";
 import { NextFunction, Request, Response } from "express";
 import type Logger from "bunyan";
 import type { Pool } from "pg";
 
 import {
+  errorCodeFor,
   errorCodes,
   privacySafeErrorDetails,
   StableApiError,
@@ -76,17 +79,41 @@ describe("privacy-safe error codes", () => {
     );
   });
 
-  it("drops multiline message text before retaining bounded stack frames", () => {
-    const secret = "addr1secret-on-an-extra-message-line";
-    const error = new Error(`Rejected request\n${secret}`);
+  it("never copies error-derived stack text into log details", () => {
+    const secret = "addr1secret-on-a-fake-stack-frame";
+    const error = new Error(`Rejected request\n    at ${secret}`);
     const details = privacySafeErrorDetails(error);
 
     expect(details.error_code).to.equal(errorCodes.internalServerError);
-    expect(details.stack_frames).to.be.a("string");
-    expect(details.stack_frames?.split("\n")).to.have.length.lessThanOrEqual(
-      12
-    );
+    expect(details).not.to.have.property("stack_frames");
     expect(JSON.stringify(details)).not.to.include(secret);
+  });
+
+  it("preserves explicit privacy-safe rollback codes", () => {
+    for (const code of [
+      errorCodes.referenceBestBlockMismatch,
+      errorCodes.referenceTxNotFound,
+      errorCodes.referenceBlockMismatch,
+      errorCodes.referencePointBlockNotFound,
+      errorCodes.referenceBestBlockNotFound,
+      errorCodes.bestBlockReferenceMismatch,
+    ]) {
+      expect(errorCodeFor(new StableApiError(code))).to.equal(code);
+    }
+  });
+
+  it("uses explicit stable errors for every reference rollback condition", () => {
+    for (const source of [
+      "src/index.ts",
+      "src/services/tipStatus.ts",
+      "src/services/utxoAtPoint.ts",
+      "src/services/utxoDiffSincePoint.ts",
+      "src/services/txSummariesForAddresses.ts",
+    ]) {
+      expect(
+        readFileSync(path.join(process.cwd(), source), "utf8")
+      ).not.to.match(/throw new Error\("(?:REFERENCE_|BESTBLOCK_REFERENCE_)/);
+    }
   });
 
   it("does not expose database failures from the coin-price handler", async () => {
@@ -163,5 +190,21 @@ describe("privacy-safe error codes", () => {
       errorCodes.transactionSubmissionFailed
     );
     expect(JSON.stringify(caught)).not.to.include(secret);
+  });
+
+  it("rejects every non-string signed transaction as an invalid request", async () => {
+    for (const signedTx of [undefined, null, 123, true, {}, [], ["a"]]) {
+      let caught: unknown;
+      try {
+        await handleSignedTx({ body: { signedTx } } as Request, {} as Response);
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).to.be.instanceOf(StableApiError);
+      expect((caught as StableApiError).code).to.equal(
+        errorCodes.invalidRequest
+      );
+    }
   });
 });

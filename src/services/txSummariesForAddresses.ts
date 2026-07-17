@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { getAddressesByType } from "../utils";
 import { getBlock } from "../utils/queries/block";
 import { getTransactionRowByHash } from "../utils/queries/transaction";
+import { errorCodes, StableApiError } from "../errorCodes";
 
 const extractBodyParameters = (
   body: any
@@ -47,14 +48,14 @@ export const handleTxSummariesForAddresses =
 
     const beforeBlock = await getBlock(pool)(before.blockHash);
     if (!beforeBlock) {
-      throw new Error("BESTBLOCK_REFERENCE_MISMATCH");
+      throw new StableApiError(errorCodes.bestBlockReferenceMismatch);
     }
 
     let beforeTx = null;
     if (before.txHash) {
       beforeTx = await getTransactionRowByHash(pool)(before.txHash);
       if (!beforeTx) {
-        throw new Error("error: before tx doesn't exist");
+        throw new StableApiError(errorCodes.referenceTxNotFound);
       }
     }
     const addressTypes = getAddressesByType(addresses);
