@@ -35,17 +35,21 @@ export const handleCamelCaseResponse = (
 };
 
 export const logErrors = (
-  err: Error,
+  err: unknown,
   _req: Request,
   _res: Response,
   next: NextFunction
 ): void => {
-  const stackFrames = err.stack?.split("\n").slice(1).join("\n");
+  let message: string;
+  try {
+    message = err instanceof Error ? err.message : String(err);
+  } catch (_error) {
+    message = "unstringifiable_error";
+  }
   // Issue #48 replaces this interim digest with stable privacy-safe error codes.
   console.error("Request failed", {
-    name: err.name,
-    message_digest: createHash("sha256").update(err.message).digest("hex"),
-    ...(stackFrames ? { stack_frames: stackFrames } : {}),
+    name: err instanceof Error ? err.name : typeof err,
+    message_digest: createHash("sha256").update(message).digest("hex"),
   });
   next(err);
 };

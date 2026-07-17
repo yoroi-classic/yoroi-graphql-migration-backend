@@ -1,5 +1,7 @@
 import { EventEmitter } from "events";
+import { readFileSync } from "fs";
 import { IncomingMessage, request as sendHttpRequest } from "http";
+import { resolve } from "path";
 import { expect } from "chai";
 import express, { NextFunction, Request, Response } from "express";
 import parser from "body-parser";
@@ -249,7 +251,24 @@ describe("retirement traffic evidence", function () {
     expect(events[0].response_class).to.equal("4xx");
   });
 
-  it("keeps diagnostic stack frames without copying request or error text", () => {
+  it("mounts retirement traffic recording before request parsers", () => {
+    const entrypoint = readFileSync(
+      resolve(__dirname, "../src/index.ts"),
+      "utf8"
+    );
+    const recorder = entrypoint.indexOf(
+      "router.use(createRetirementTrafficMiddleware());"
+    );
+    const middleware = entrypoint.indexOf(
+      "applyMiddleware(middlewares, router);"
+    );
+
+    expect(recorder).to.be.greaterThan(-1);
+    expect(middleware).to.be.greaterThan(-1);
+    expect(recorder).to.be.lessThan(middleware);
+  });
+
+  it("keeps a diagnostic digest without copying request or error text", () => {
     const logged: unknown[][] = [];
     const originalConsoleError = console.error;
     const sensitiveValue = "addr1secret-from-request";
@@ -277,7 +296,36 @@ describe("retirement traffic evidence", function () {
     expect(logged[0][0]).to.equal("Request failed");
     expect(logged[0][1]).to.include({ name: "Error" });
     expect(logged[0][1]).to.have.property("message_digest").with.length(64);
-    expect(logged[0][1]).to.have.property("stack_frames");
+    expect(logged[0][1]).not.to.have.property("stack_frames");
+    expect(JSON.stringify(logged)).not.to.include(sensitiveValue);
+  });
+
+  it("safely logs non-Error throws without copying their text", () => {
+    const logged: unknown[][] = [];
+    const originalConsoleError = console.error;
+    const sensitiveValue = "addr1secret-from-string-throw\n  at fake-frame";
+    let forwarded: unknown;
+    console.error = (...values: unknown[]) => logged.push(values);
+
+    try {
+      logErrors(
+        sensitiveValue,
+        {} as Request,
+        {} as Response,
+        ((error?: unknown) => {
+          forwarded = error;
+        }) as NextFunction
+      );
+    } finally {
+      console.error = originalConsoleError;
+    }
+
+    expect(forwarded).to.equal(sensitiveValue);
+    expect(logged).to.have.length(1);
+    expect(logged[0][0]).to.equal("Request failed");
+    expect(logged[0][1]).to.include({ name: "string" });
+    expect(logged[0][1]).to.have.property("message_digest").with.length(64);
+    expect(logged[0][1]).not.to.have.property("stack_frames");
     expect(JSON.stringify(logged)).not.to.include(sensitiveValue);
   });
 });
