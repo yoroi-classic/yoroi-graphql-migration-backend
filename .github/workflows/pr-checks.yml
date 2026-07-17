@@ -161,6 +161,7 @@ jobs:
       - name: run route and retirement traffic contract tests
         run: |
           npm run test:route-contracts
+          npm run test:error-codes
           npm run test:retirement-traffic
   config-default-tests:
     if: >-

@@ -2,11 +2,12 @@ import Logger from "bunyan";
 import config from "config";
 import constants from "./constants";
 import { getCurrentPrice, getHistoricalPrice } from "./model";
+import { errorCodes, privacySafeErrorDetails } from "../errorCodes";
 
 import type { Request, Response } from "express";
 import type { Pool } from "pg";
 
-async function currentPrice(
+export async function currentPrice(
   db: Pool,
   logger: Logger,
   req: Request,
@@ -34,13 +35,18 @@ async function currentPrice(
     res.send(result);
   } catch (e) {
     const error: Error = e instanceof Error ? e : new Error(String(e));
-    const result = { error: error.message };
+    const code = errorCodes.coinPriceUnavailable;
+    const result = { error: { code } };
+    logger.error(
+      privacySafeErrorDetails(error, code),
+      "Coin price request failed"
+    );
     res.status(500);
     res.send(result);
   }
 }
 
-async function historicalPrice(
+export async function historicalPrice(
   db: Pool,
   logger: Logger,
   req: Request,
@@ -85,10 +91,14 @@ async function historicalPrice(
     res.send(result);
   } catch (e) {
     const error: Error = e instanceof Error ? e : new Error(String(e));
-    const result = { error: error.message };
+    const code = errorCodes.coinPriceUnavailable;
+    const result = { error: { code } };
     res.status(500);
     res.send(result);
-    logger.error(error);
+    logger.error(
+      privacySafeErrorDetails(error, code),
+      "Coin price request failed"
+    );
   }
 }
 

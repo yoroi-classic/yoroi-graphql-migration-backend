@@ -2,6 +2,7 @@ import config from "config";
 import axios from "axios";
 import { Request, Response } from "express";
 import { calculateTxId } from "../utils";
+import { errorCodes, StableApiError } from "../errorCodes";
 
 const submissionEndpoint: string = config.get("server.txSubmissionEndpoint");
 
@@ -33,8 +34,7 @@ const submitToQueue = async (req: Request, res: Response) => {
     });
     res.status(200).send({ txId });
   } catch (_err) {
-    console.error("Signed transaction queue submission failed");
-    res.status(500).send("Error submitting the TX");
+    throw new StableApiError(errorCodes.transactionSubmissionFailed);
   }
 };
 
@@ -66,13 +66,8 @@ const submit = async (req: Request, res: Response) => {
         )}`
       );
     }
-  } catch (error: any) {
-    if (error.response != null) {
-      const { status, data } = error.response;
-      res.status(status).send(data);
-      return;
-    }
-    throw Error(`Error trying to send transaction: ${String(error)}`);
+  } catch (_error: unknown) {
+    throw new StableApiError(errorCodes.transactionSubmissionFailed);
   }
 };
 
@@ -80,7 +75,9 @@ export const handleSignedTx = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  if (!req.body.signedTx) throw new Error("No signedTx in body");
+  if (!req.body.signedTx) {
+    throw new StableApiError(errorCodes.invalidRequest);
+  }
 
   if (config.get("usingQueueEndpoint") === "true") {
     await submitToQueue(req, res);

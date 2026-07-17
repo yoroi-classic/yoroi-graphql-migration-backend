@@ -143,11 +143,11 @@ const certificateDeregistrationRewardAddresses = {
 
 const testableUri = endpoint + "v2/txs/history";
 
-const expectReferenceError = (err: unknown, message: string): void => {
+const expectReferenceError = (err: unknown): void => {
   if (!axios.isAxiosError(err) || !err.response) throw err;
 
   expect(err.response.status).to.be.equal(500);
-  expect(err.response.data.error.response).to.be.equal(message);
+  expect(err.response.data.error.code).to.be.equal("INTERNAL_SERVER_ERROR");
 };
 
 describe("/txs/history", function() {
@@ -172,7 +172,7 @@ describe("/txs/history", function() {
       });
       expect(1).to.be.equal(0); // equivalent to asset false
     } catch (err) {
-      expectReferenceError(err, "REFERENCE_BEST_BLOCK_MISMATCH");
+      expectReferenceError(err);
     }
   });
   it("should throw reference errors for a tx that doesn't exist.", async() => {
@@ -187,7 +187,7 @@ describe("/txs/history", function() {
       });
       expect(1).to.be.equal(0); // equivalent to asset false
     } catch (err) {
-      expectReferenceError(err, "REFERENCE_TX_NOT_FOUND");
+      expectReferenceError(err);
     }
   });
   it("should throw reference errors for a tx that doesn't match the block in after.", async() => {
@@ -202,7 +202,7 @@ describe("/txs/history", function() {
       });
       expect(1).to.be.equal(0); // equivalent to asset false
     } catch (err) {
-      expectReferenceError(err, "REFERENCE_BLOCK_MISMATCH");
+      expectReferenceError(err);
     }
   });
 

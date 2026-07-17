@@ -30,6 +30,7 @@ import { handleGetAccountState } from "../src/services/accountState";
 import { handlePoolInfo } from "../src/services/poolInfo";
 import { handleGetMultiAssetTxMintMetadata } from "../src/services/multiAssetTxMint";
 import { mapTransactionFragsToResponse } from "../src/utils/mappers";
+import { errorCodes, StableApiError } from "../src/errorCodes";
 
 import { walletContractFixtures as fixtures } from "./fixtures/walletEndpointContracts";
 
@@ -350,7 +351,9 @@ const directSignedTxContractHandler: SignedTxContractHandler = async (
   req,
   res
 ) => {
-  if (!req.body.signedTx) throw new Error("No signedTx in body");
+  if (!req.body.signedTx) {
+    throw new StableApiError(errorCodes.invalidRequest);
+  }
 
   res.send([]);
 };
@@ -359,7 +362,9 @@ const queuedSignedTxContractHandler: SignedTxContractHandler = async (
   req,
   res
 ) => {
-  if (!req.body.signedTx) throw new Error("No signedTx in body");
+  if (!req.body.signedTx) {
+    throw new StableApiError(errorCodes.invalidRequest);
+  }
 
   res.status(200).send({ txId: fixtures.txHash });
 };
@@ -685,7 +690,7 @@ describe("wallet endpoint contracts", function () {
     const missingSignedTx = await client.post("/txs/signed", {});
     expect(missingSignedTx.status).to.equal(500);
     expect(missingSignedTx.data).to.deep.equal({
-      error: { response: "No signedTx in body" },
+      error: { code: "INVALID_REQUEST" },
     });
 
     const malformedHistory = await client.post("/v2/txs/history", {
@@ -693,7 +698,7 @@ describe("wallet endpoint contracts", function () {
     });
     expect(malformedHistory.status).to.equal(500);
     expect(malformedHistory.data).to.deep.equal({
-      error: { response: "body.untilBlock does not exist." },
+      error: { code: "INTERNAL_SERVER_ERROR" },
     });
   });
 

@@ -268,7 +268,7 @@ describe("retirement traffic evidence", function () {
     expect(recorder).to.be.lessThan(middleware);
   });
 
-  it("keeps a diagnostic digest without copying request or error text", () => {
+  it("logs only a stable code without copying request or error text", () => {
     const logged: unknown[][] = [];
     const originalConsoleError = console.error;
     const sensitiveValue = "addr1secret-from-request";
@@ -294,8 +294,10 @@ describe("retirement traffic evidence", function () {
     expect(forwarded).to.be.instanceOf(Error);
     expect(logged).to.have.length(1);
     expect(logged[0][0]).to.equal("Request failed");
-    expect(logged[0][1]).to.include({ name: "Error" });
-    expect(logged[0][1]).to.have.property("message_digest").with.length(64);
+    expect(logged[0][1]).to.include({
+      error_code: "INTERNAL_SERVER_ERROR",
+    });
+    expect(logged[0][1]).not.to.have.property("message_digest");
     expect(logged[0][1]).not.to.have.property("stack_frames");
     expect(JSON.stringify(logged)).not.to.include(sensitiveValue);
   });
@@ -323,8 +325,10 @@ describe("retirement traffic evidence", function () {
     expect(forwarded).to.equal(sensitiveValue);
     expect(logged).to.have.length(1);
     expect(logged[0][0]).to.equal("Request failed");
-    expect(logged[0][1]).to.include({ name: "string" });
-    expect(logged[0][1]).to.have.property("message_digest").with.length(64);
+    expect(logged[0][1]).to.include({
+      error_code: "INTERNAL_SERVER_ERROR",
+    });
+    expect(logged[0][1]).not.to.have.property("message_digest");
     expect(logged[0][1]).not.to.have.property("stack_frames");
     expect(JSON.stringify(logged)).not.to.include(sensitiveValue);
   });

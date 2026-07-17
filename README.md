@@ -373,10 +373,9 @@ We recommend querying using payment key hashes (`addr_vkh`) when possible (other
   3) Query everything between `untilBlock` and `after`. If `untilBlock` no long exists, requery. If `after` no long exists, mark the transaction as failed and re-query with an earlier transaction
   4) If more results were returned than the maximum responses you can receive for one query, find the most recent transction included in the response and set this as the new `after` and then query again (with the same value for `untilBlock`)
 
-  **Note**: this endpoint will throw an error if either the `untilBlock` or `after` fields no longer exist inside the blockchain (allowing your app to handle rollbacks). Notably, the error codes are
-  - 'REFERENCE_BLOCK_MISMATCH'
-  - 'REFERENCE_TX_NOT_FOUND'
-  - 'REFERENCE_BEST_BLOCK_MISMATCH'
+  **Note**: this endpoint returns `{ error: { code: "INTERNAL_SERVER_ERROR" } }`
+  when it cannot satisfy a request. Internal and rollback-specific messages are
+  not returned to callers or written to application logs.
 
   Input
 
