@@ -1,7 +1,8 @@
 import { EventEmitter } from "events";
-import { IncomingMessage } from "http";
+import { IncomingMessage, request as sendHttpRequest } from "http";
 import { expect } from "chai";
-import { NextFunction, Request, Response } from "express";
+import express, { NextFunction, Request, Response } from "express";
+import parser from "body-parser";
 
 import {
   createRetirementTrafficMiddleware,
@@ -93,6 +94,23 @@ describe("retirement traffic evidence", function () {
     expect(JSON.stringify(event)).not.to.include(identifyingHeader);
   });
 
+  it("bounds and canonicalizes caller-controlled version bands", () => {
+    const canonical = captureHttpEvent({
+      method: "GET",
+      route: { path: "/status" },
+      headers: { "yoroi-version": "android / 000004.000031.000002" },
+    });
+    const unbounded = captureHttpEvent({
+      method: "GET",
+      route: { path: "/status" },
+      headers: { "yoroi-version": "android / 1234567.31" },
+    });
+
+    expect(canonical.client_version_band).to.equal("4.31");
+    expect(unbounded.client_kind).to.equal("unknown");
+    expect(unbounded.client_version_band).to.equal(null);
+  });
+
   it("keeps the legacy mobile version band without copying its header", () => {
     const event = captureHttpEvent({
       method: "GET",
@@ -137,7 +155,7 @@ describe("retirement traffic evidence", function () {
           cookie: sensitiveCookie,
           "yoroi-version": "ios / 4.30.1",
         },
-        url: "/addr1secret",
+        url: "/?wallet=addr1secret",
       } as unknown as IncomingMessage,
       {
         deployment: "production-us",
@@ -165,7 +183,73 @@ describe("retirement traffic evidence", function () {
     expect(JSON.stringify(events)).not.to.include("addr1secret");
   });
 
-  it("does not copy request data or error text into the error log", () => {
+  it("separates non-root WebSocket upgrades without copying their path", () => {
+    const events: RetirementTrafficEvent[] = [];
+    recordRetirementWebSocketConnection(
+      {
+        headers: {},
+        url: "/addr1secret",
+      } as unknown as IncomingMessage,
+      { sink: (event) => events.push(event) }
+    );
+
+    expect(events[0].route).to.equal("websocket_other");
+    expect(JSON.stringify(events)).not.to.include("addr1secret");
+  });
+
+  it("records malformed-body responses when mounted before parsers", async () => {
+    const events: RetirementTrafficEvent[] = [];
+    const app = express();
+    app.use(
+      createRetirementTrafficMiddleware({ sink: (event) => events.push(event) })
+    );
+    app.use(parser.json());
+    app.post("/account/state", (_req, res) => res.sendStatus(204));
+    app.use(
+      (_error: Error, _req: Request, res: Response, _next: NextFunction) =>
+        res.sendStatus(400)
+    );
+    const malformedJson = JSON.stringify({ broken: true }).slice(0, -1);
+
+    const statusCode = await new Promise<number>((resolve, reject) => {
+      const server = app.listen(0, "127.0.0.1", () => {
+        const address = server.address();
+        if (!address || typeof address === "string") {
+          server.close();
+          reject(new Error("Test server did not bind a TCP port"));
+          return;
+        }
+        const request = sendHttpRequest(
+          {
+            host: "127.0.0.1",
+            port: address.port,
+            path: "/account/state",
+            method: "POST",
+            headers: { "content-type": "application/json" },
+          },
+          (response) => {
+            response.resume();
+            response.once("end", () => {
+              server.close();
+              resolve(response.statusCode || 0);
+            });
+          }
+        );
+        request.once("error", (error) => {
+          server.close();
+          reject(error);
+        });
+        request.end(malformedJson);
+      });
+    });
+
+    expect(statusCode).to.equal(400);
+    expect(events).to.have.length(1);
+    expect(events[0].route).to.equal("unmatched");
+    expect(events[0].response_class).to.equal("4xx");
+  });
+
+  it("keeps diagnostic stack frames without copying request or error text", () => {
     const logged: unknown[][] = [];
     const originalConsoleError = console.error;
     const sensitiveValue = "addr1secret-from-request";
@@ -189,7 +273,11 @@ describe("retirement traffic evidence", function () {
     }
 
     expect(forwarded).to.be.instanceOf(Error);
-    expect(logged).to.deep.equal([["Request failed", { name: "Error" }]]);
+    expect(logged).to.have.length(1);
+    expect(logged[0][0]).to.equal("Request failed");
+    expect(logged[0][1]).to.include({ name: "Error" });
+    expect(logged[0][1]).to.have.property("message_digest").with.length(64);
+    expect(logged[0][1]).to.have.property("stack_frames");
     expect(JSON.stringify(logged)).not.to.include(sensitiveValue);
   });
 });

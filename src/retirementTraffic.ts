@@ -39,7 +39,7 @@ const OPERATIONS_ROUTES = new Set([
 ]);
 const SAFE_DIMENSION = /^[a-z0-9][a-z0-9_-]{0,31}$/i;
 const CLIENT_VERSION =
-  /^(android|ios|-|firefox|chrome) \/ ([0-9]+)\.([0-9]+)(?:\.[0-9]+)?$/i;
+  /^(android|ios|-|firefox|chrome) \/ ([0-9]{1,6})\.([0-9]{1,6})(?:\.[0-9]{1,6})?$/i;
 
 const safeDimension = (value: string | undefined): string =>
   value && SAFE_DIMENSION.test(value) ? value.toLowerCase() : "unknown";
@@ -94,7 +94,7 @@ const clientEvidence = (
       match[1] === "-"
         ? "legacy_mobile"
         : (match[1].toLowerCase() as ClientEvidence["client_platform"]),
-    client_version_band: `${match[2]}.${match[3]}`,
+    client_version_band: `${Number(match[2])}.${Number(match[3])}`,
   };
 };
 
@@ -139,7 +139,15 @@ export const recordRetirementWebSocketConnection = (
   options: RetirementTrafficOptions = {}
 ): void => {
   const resolved = resolveOptions(options);
-  const route = "websocket_root";
+  let route = "websocket_other";
+  try {
+    route =
+      new URL(req.url || "/", "http://retirement.invalid").pathname === "/"
+        ? "websocket_root"
+        : "websocket_other";
+  } catch (_error) {
+    // Keep malformed or identifying upgrade targets out of the evidence.
+  }
   resolved.sink({
     event: "retirement_route_request",
     schema_version: 1,

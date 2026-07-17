@@ -117,6 +117,7 @@ Sentry.init({
 
 router.use(Sentry.Handlers.requestHandler());
 router.use(Sentry.Handlers.tracingHandler());
+router.use(createRetirementTrafficMiddleware());
 
 const middlewares = [
   middleware.handleCors,
@@ -125,7 +126,6 @@ const middlewares = [
 ];
 
 applyMiddleware(middlewares, router);
-router.use(createRetirementTrafficMiddleware());
 
 const port: number = config.get("server.port");
 const addressesRequestLimit: number = config.get("server.addressRequestLimit");

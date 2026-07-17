@@ -2,6 +2,7 @@ import { NextFunction, Request, Response, Router } from "express";
 import cors from "cors";
 import parser from "body-parser";
 import compression from "compression";
+import { createHash } from "crypto";
 import camelizeKeys from "./utils";
 
 export const handleCors = (router: Router): Router =>
@@ -39,7 +40,13 @@ export const logErrors = (
   _res: Response,
   next: NextFunction
 ): void => {
-  console.error("Request failed", { name: err.name });
+  const stackFrames = err.stack?.split("\n").slice(1).join("\n");
+  // Issue #48 replaces this interim digest with stable privacy-safe error codes.
+  console.error("Request failed", {
+    name: err.name,
+    message_digest: createHash("sha256").update(err.message).digest("hex"),
+    ...(stackFrames ? { stack_frames: stackFrames } : {}),
+  });
   next(err);
 };
 

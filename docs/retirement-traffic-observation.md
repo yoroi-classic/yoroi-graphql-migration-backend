@@ -3,7 +3,7 @@
 Issue
 [`#44`](https://github.com/yoroi-classic/yoroi-graphql-migration-backend/issues/44)
 adds one structured `retirement_route_request` event for every completed HTTP
-request and accepted root WebSocket connection. These events exist only to
+request and accepted WebSocket connection. These events exist only to
 produce the shutdown evidence required by
 [`#43`](https://github.com/yoroi-classic/yoroi-graphql-migration-backend/issues/43).
 
@@ -31,10 +31,17 @@ Each event contains only:
 - a recognized client platform and major/minor version band.
 
 The `yoroi-version` header is accepted only when the entire value matches a
-known platform and numeric version. Request URLs, path values, query strings,
+known platform and bounded numeric version. Leading zeroes are removed from
+the major/minor band to prevent caller-controlled cardinality. Root WebSocket
+upgrades are labeled `websocket_root`; other accepted upgrade paths receive
+the static `websocket_other` label. Request URLs, path values, query strings,
 bodies, cookies, authorization headers, IP addresses, user agents, and the raw
 version header are never emitted. Existing error logging also omits request
-URLs and bodies, and rejected signed transactions are no longer logged.
+URLs, bodies, and raw messages while retaining a message digest and stack
+frames for diagnostics, and rejected signed transactions are no longer logged.
+Replace that interim digest with stable privacy-safe error codes under
+[`#48`](https://github.com/yoroi-classic/yoroi-graphql-migration-backend/issues/48),
+unless the service is retired first.
 
 ## Observation query and dashboard
 
@@ -56,7 +63,7 @@ The retirement dashboard must show:
 1. required-client traffic by route and supported client version band;
 2. unknown traffic by route;
 3. operations-only health traffic;
-4. root WebSocket connections;
+4. root and non-root WebSocket connections;
 5. non-`2xx` response classes and any `unknown` deployment or network values.
 
 Keep the raw structured events only for the operations-approved retention
