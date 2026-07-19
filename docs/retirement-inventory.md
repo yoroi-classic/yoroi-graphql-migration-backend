@@ -93,6 +93,161 @@ Their replacement or drop decisions are recorded in
 In particular, swap fees, wallet registration, partner payout links, and
 curated pool rankings are drop decisions rather than `/v1` contracts.
 
+## Repository operational-surface audit
+
+The following facts are derivable from this repository at the pinned
+`61539de40b679720338b8a49463d76c89383f1b4` baseline. They describe code and
+configuration entry points, not the production topology. In particular, the
+absence of infrastructure here is not evidence that a production resource
+does not exist.
+
+| Surface                    | Repository evidence                                                                                                                                                                                                                                                                                                           | What must be established outside this repository before removal                                                                                                                                                                                                                             |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime image              | `Dockerfile` is the only deployable artifact definition. Its final image starts the HTTP/WebSocket server and an Alpine cron daemon in one container. It declares port `8080`, while `config/default.ts` defaults `PORT` to `8082`.                                                                                           | Record every deployed image digest, runtime `PORT`, network/environment, replica set, orchestrator object, and owning repository. Do not infer production port or topology from either default.                                                                                             |
+| Process manager            | `pm2.yaml` is an alternative clustered server definition (`instances: max`).                                                                                                                                                                                                                                                  | Record whether any environment uses PM2, the container command, or another supervisor, and its exact stop/rollback procedure.                                                                                                                                                               |
+| Scheduled work             | The image schedules the coin-price fetcher every five minutes and the S3-to-Postgres poller every minute. The fetcher exits without work unless `RUN_FETCHER`/`run_fetcher` is `true`. A separate price monitor command exists but is not scheduled by this Dockerfile.                                                       | Identify every real scheduler, replica, and independently deployed fetcher, poller, or monitor. Prove each producer is stopped once; a multi-replica image may otherwise run duplicate cron jobs.                                                                                           |
+| HTTP and WebSocket ingress | `src/index.ts` serves Express routes and a root WebSocket on the same HTTP server. No reverse-proxy, load-balancer, Kubernetes, Helm, Terraform, Pulumi, Compose, DNS, or TLS configuration is present here.                                                                                                                  | Inventory ingress/load balancers, WebSocket routing, domains, DNS records and TTLs, certificates, health checks, WAF/rate limits, and their owning accounts/repos. Attach provider evidence rather than guessing names.                                                                     |
+| Database                   | The service uses PostgreSQL through `POSTGRES_*`. Startup creates or replaces Cardano transaction views/functions. The price poller creates/updates its own ticker data in the configured database. The configured database may also be the shared db-sync database.                                                          | Identify the exact clusters/schemas, backup and retention policy, app-owned tables/views/functions, and other consumers. Never delete a whole database or shared db-sync objects as part of an application shutdown. Use a separately reviewed cleanup migration after ownership is proven. |
+| Transaction submission     | Runtime selects direct submission through `TX_SUBMISSION_ENDPOINT`, or queue mode through `USE_SIGNED_TX_QUEUE=true` and `SIGNED_TX_QUEUE_ENDPOINT`. Queue submission and status are external HTTP calls; no queue implementation or queue manifest lives here.                                                               | Record the mode per Cardano network, upstream owner, backlog/in-flight/retry/dead-letter evidence, and whether the queue is shared. Never discard signed transactions or delete a shared queue.                                                                                             |
+| Price data and signing     | The fetcher reads provider keys, `COIN_PRICE_PRIV_KEY`/`COIN_PRICE_PUB_KEY`, `PRICE_PROVIDERS`, and S3 credentials/bucket settings. The poller reads the same S3 dataset into PostgreSQL.                                                                                                                                     | Identify bucket/versioning/lifecycle, provider accounts, signing-key custodian, key-destruction requirements, and data retention. Do not paste signing material or API-key values into issue #43.                                                                                           |
+| AWS integration            | NFT validation constructs an AWS Lambda client from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, and a configured function name. No Lambda or IAM definition is present here.                                                                                                                                  | Identify the function, aliases, IAM principals/policies, logs, and other callers. Remove only resources proven exclusive to this service.                                                                                                                                                   |
+| Other upstreams            | Runtime configuration includes SMASH, Catalyst fund-info, and direct/queued transaction endpoints. The price fetcher calls configured market-data providers and an exchange-rate provider.                                                                                                                                    | Record endpoint owners, credentials, billing/subscription state, and other consumers before revoking access or deleting an account.                                                                                                                                                         |
+| Monitoring and logs        | The server initializes Sentry from `DSNExpress`, exposes status/importer-health routes, and logs to stdout/stderr. The price tools use Bunyan and include a separately invocable monitor. No alert, dashboard, log-retention, or Sentry-project manifest is present here.                                                     | Identify Sentry projects, dashboards, alerts, log sinks/indexes, uptime probes, on-call ownership, and retention/export requirements. Keep shutdown monitoring until the observation and rollback windows close.                                                                            |
+| GitHub automation          | `.github/workflows` contains PR checks, dependency review, and SonarQube analysis. PR CI builds a local image but does not publish it. No image-publish, release, deployment, rollback, or environment workflow is present. The only repository secrets referenced by these workflows are `SONAR_TOKEN` and `SONAR_HOST_URL`. | Locate any external CI/CD, registry, release branch automation, deploy keys/tokens, GitHub environments, and manual runbooks. A clean audit of this repository alone cannot prove that no release path exists.                                                                              |
+
+### Required production evidence record
+
+Create one row per production network/environment and per concrete resource in
+issue #43. A link to an owning inventory or change record is acceptable; an
+unsupported assertion is not.
+
+| Evidence field              | Required value                                                                                                                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Resource                    | Provider type and exact provider identifier; for deployments include image digest and runtime entry point.                                                                                       |
+| Network and scope           | Cardano network, region/account/project, public domains, and whether the resource is shared.                                                                                                     |
+| Owner                       | Human/operations owner and owning repository/team.                                                                                                                                               |
+| Current state               | Read-only provider evidence with collection time, including replicas/jobs and configuration **names**, never secret values.                                                                      |
+| Traffic or backlog evidence | Privacy-safe query/export link, time range, client-version grouping, and result. Do not record addresses, stake keys, transaction hashes, signed transaction CBOR, mnemonics, or request bodies. |
+| Retention obligation        | Data/log/key retention or destruction decision, approver, expiry, and evidence location.                                                                                                         |
+| Removal change              | Independently reviewed PR/change ticket and execution window.                                                                                                                                    |
+| Rollback                    | Trigger, exact artifact/config to restore, operator, and deadline before irreversible deletion.                                                                                                  |
+| Approval                    | Named human approver and timestamp. Empty means not authorized.                                                                                                                                  |
+
+At minimum the evidence record must cover deployment/orchestrator resources,
+image registry artifacts, ingress and WebSocket routing, DNS, TLS, PostgreSQL,
+transaction submission and any queue, price S3 data and schedules, Lambda/IAM,
+provider accounts, Sentry/logging/alerts, runtime and CI/CD credentials, and any
+release automation outside this repository.
+
+## Ordered shutdown and removal runbook
+
+This runbook is a sequence of gates, not authorization to execute them. Each
+step must link its evidence and operator record in issue #43. Stop at the first
+failed gate.
+
+### 1. Freeze the retirement candidate
+
+- [ ] Record the exact deployment resources, image digests, entry points,
+      non-secret configuration names, Cardano network, domains, and client
+      releases/builds in scope.
+- [ ] Record the independently reviewed rollback change that restores those
+      same artifacts and network-specific settings.
+- [ ] Confirm all client migration, Byron/no-stake support, backend-gap, and
+      feature-removal gates in the shutdown checklist below.
+- [ ] Confirm privacy-safe route and WebSocket traffic evidence covers the
+      human-approved observation period and supported client versions. Zero
+      audited source references is not production traffic proof.
+- [ ] Confirm backups, retention, legal/data obligations, and the rollback
+      deadline before changing traffic or credentials.
+
+### 2. Quiesce wallet writes reversibly
+
+- [ ] During an approved window, stop accepting **new** legacy transaction
+      submissions using the owning ingress/deployment mechanism. Keep the
+      change reversible and scoped to the correct Cardano network.
+- [ ] In queue mode, prove all accepted items reached a documented terminal
+      state and that pending, in-flight, retry, and dead-letter counts are zero.
+      Record queue ownership before changing it. In direct mode, prove there
+      are no in-flight submission requests; this repository has no local
+      durable queue to inspect.
+- [ ] Confirm no signed transaction body, CBOR, transaction hash, wallet
+      address, key, or mnemonic entered the shutdown evidence or logs.
+- [ ] Observe the approved write-freeze interval. Any supported wallet write
+      or unexplained backlog aborts the shutdown and triggers rollback.
+
+### 3. Stop producers, then serving processes
+
+- [ ] Stop every coin-price fetcher, poller, and separately deployed monitor,
+      and verify no new S3 objects or price rows are written. Account for the
+      Docker image's bundled cron daemon and every replica before declaring
+      scheduled work stopped.
+- [ ] Gracefully stop HTTP and root-WebSocket serving processes after the
+      transaction gate is satisfied. Record active connection/request counts
+      before and after. Do not delete the database, queue, bucket, or keys in
+      this reversible phase.
+- [ ] Verify `cardano-wallet-backend` health and wallet-critical behavior on
+      each affected network: address discovery, exact UTxO/token quantities,
+      transaction history/state, submission, and pending-status reconciliation.
+- [ ] Keep ingress rollback, logs, Sentry, traffic dashboards, alerts, and the
+      known-good image available for the approved rollback window.
+
+### 4. Validate silence and close rollback
+
+- [ ] Prove no required HTTP route, WebSocket, scheduled writer, or transaction
+      queue activity occurred for the approved post-stop period. Separate
+      operations probes from client traffic and investigate unknown callers.
+- [ ] Confirm supported clients show no legacy-backend failures and that no
+      wallet state, UTxO, exact amount, network selection, or transaction
+      submission invariant regressed.
+- [ ] Have the named human/operations approvers explicitly close the rollback
+      window. Before this approval, perform rollback rather than irreversible
+      deletion if a trigger fires.
+
+### 5. Remove infrastructure in owning systems
+
+- [ ] Remove deployment, scheduler, service, ingress/load-balancer, and
+      WebSocket resources through independently reviewed changes in their
+      owning repositories/accounts. This repository contains none of those
+      production manifests, so links to external changes are mandatory.
+- [ ] Remove DNS only after recording current records/TTLs and completing the
+      approved transition/observation interval; then retire TLS certificates
+      and validation records proven exclusive to these names.
+- [ ] Apply the approved database/export plan. Drop only app-owned
+      tables/views/functions with a reviewed migration; preserve shared db-sync
+      data and backups for their required retention period.
+- [ ] Apply the approved S3, Lambda/IAM, provider-account, log, Sentry, and
+      monitoring retention/removal plans. Shared resources remain until every
+      other owner signs off.
+- [ ] After the rollback deadline, revoke or rotate runtime identities,
+      transaction/price provider credentials, S3/Lambda credentials, Sentry
+      DSN, and the coin-price signing key according to the recorded custody
+      plan. Record destruction/revocation without publishing values.
+- [ ] Remove external release/deploy automation and registry credentials, then
+      expire image artifacts according to the approved retention policy. Do
+      not treat the absence of a workflow here as proof this is complete.
+
+### 6. Archive only after evidence review
+
+- [ ] Replace the README with final archive/migration guidance naming
+      `cardano-wallet-backend`, supported client versions, shutdown date, and
+      retained-data contact.
+- [ ] Attach the completed evidence table, execution records, and residual
+      ownership decisions to issue #43.
+- [ ] Obtain Crypto2099/human operations approval for the shutdown evidence and
+      a separate explicit approval to archive the repository. Repository
+      archive is the last step and is not authorized by merging this document.
+
+### Rollback triggers
+
+Rollback before irreversible removal if any supported client still calls a
+required route, a transaction remains pending/in-flight/retrying/dead-lettered,
+unknown traffic cannot be attributed, the replacement serves the wrong Cardano
+network or inconsistent wallet state, exact Lovelace/token quantities differ,
+transaction submission/status reconciliation fails, or required monitoring is
+lost. Restore the recorded image/config and ingress through the approved
+rollback change, then reopen the failed gate in issue #43. Do not improvise a
+new GraphQL product contract as a rollback.
+
 ## Shutdown checklist
 
 Every box requires evidence attached to issue #43 for the exact production
