@@ -1,5 +1,11 @@
 # yoroi-graphql-migration-backend
 
+> This service is in compatibility-only maintenance while clients migrate to
+> `yoroi-classic/cardano-wallet-backend`. See the
+> [retirement inventory and shutdown checklist](docs/retirement-inventory.md).
+> No shutdown or archive is authorized without the evidence and human approval
+> recorded there.
+
 ## Background
 
 [Adrestia](https://github.com/input-output-hk/adrestia) is the new codename for all Cardano tooling and includes tooling that will have long-term support.
